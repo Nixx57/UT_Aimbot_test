@@ -290,18 +290,16 @@ function Vector PrePingCorrection (Pawn Target)
 
 function Vector MuzzleCorrection (Pawn Target)
 {
-	local Vector Correction;
-	local Vector MyLocation;
-
-	MyLocation = Me.Location;
-	MyLocation.Z += Me.BaseEyeHeight;
+	local Vector Correction,X,Y,Z;
+	
+	GetAxes(Me.ViewRotation,X,Y,Z);
 
 	if (Me.Weapon != None)
 	{
-		Correction = Me.Weapon.FireOffset;
+		Correction = Me.Location + Me.Weapon.CalcDrawOffset() + Me.Weapon.FireOffset.X * X + Me.Weapon.FireOffset.Y * Y + Me.Weapon.FireOffset.Z * Z;
 	}
 	
-	return MyLocation + Correction;
+	return Correction;
 }
 
 function SetPawnRotation (Pawn Target)
