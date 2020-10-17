@@ -1,7 +1,6 @@
 //=====================================================================================
 // BOT START.
 //=====================================================================================
-
 class MyConsole extends UTConsole Config(MyAimbot);
 // MyConsole : This must match the filename you are programming in
 // UTConsole : This is the Class your script extends
@@ -14,36 +13,19 @@ class MyConsole extends UTConsole Config(MyAimbot);
 // In this case you will Import the file "MyCross.bmp" and give it the variable name "MyCross"
 // The same goes for MyLogo.bmp
 
-///////////////////////////////////////////////////////////////
-// TEST
-///////////////////////////////////////////////////////////////
-struct TargetStruct
-{
-	var Pawn 	Target;
-	var Vector 	TOffset;
-	var bool 	TVisible;
-	var bool 	TEnemy;
-	var byte 	TFireMode;
-	var int 	TWarning;
-};
-///////////////////////////////////////////////////////////////
-// ENDTEST
-///////////////////////////////////////////////////////////////
-
-
-
-
 
 // if a config statement is before the variable, you will be able to save the variable into "MyAimbot.ini"
 var config bool bBotActive;
 var config bool bAutoAim;
 var config bool bAutoFire;
 var config bool bDrawRadar;
-
+var config int MySetSlowSpeed;
+var config int LastFireMode;
 
 // These vars will not be saved to the .ini file
 var PlayerPawn Me;
-var bool bBotIsShooting;
+var Pawn CurrentTarget;
+
 
 
 // Hook into the PostRender event to get Canvas acces
@@ -64,6 +46,16 @@ event PostRender (Canvas Canvas)
 // MAIN BOT.
 //================================================================================
 
+exec function Fire(optional float F)
+{
+	Me.Fire();
+	LastFireMode=1;
+}
+exec function AltFire(optional float F)
+{
+	Me.AltFire();
+	LastFireMode=2;
+}
 
 // This is where the magic happens :P
 // It is the start of our own Aimbot code
@@ -132,76 +124,46 @@ function DrawMySettings (Canvas Canvas)
 	
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 20);
 	Canvas.DrawText("AutoAim  : " $ String(bAutoAim));
-	
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 30);
-	Canvas.DrawText("AutoFire : " $ String(bAutoFire));
-	
+
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 40);
-	Canvas.DrawText("Radar    : " $ String(bDrawRadar));	
+	Canvas.DrawText("RotationSpeed    : " $ String(MySetSlowSpeed));
+
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 60);
+	Canvas.DrawText("FireMode    : " $ String(LastFireMode));
 	
 }
 
 
 // This function holds the code that will cycle through all Players on the Map
-function TargetStruct PawnRelated(Canvas Canvas)
+function PawnRelated(Canvas Canvas)
 {
 	local Pawn Target;
-	local TargetStruct BestTarget;
-	local TargetStruct CurrentTarget;
-	
-	BestTarget=ClearTargetInfo(BestTarget);
 
+	if(!Me.LineOfSightTo(CurrentTarget) || !ValidTarget(Target))
+	{
+		CurrentTarget = None;
+	}
 	// Cycle through all players (Pawns) on the Map and store them in a temporarry variable "Target"
 	foreach Me.Level.AllActors(Class'Pawn', Target)
 	{
 		// Check if this Target is Valid, we don't want to be Aiming at spectator or people that are allready dead :P
 		if ( ValidTarget(Target) )
-		{
-			// Check if the feature "DrawRadar" is active
-			if ( bDrawRadar )
-			{
-				DrawPlayerOnRadar(Target, Canvas);
-				// execute the code that will draw this Target in our 3D Radar
-			}
-			
+		{	
 			// Check if the feature "AutoAim" is active
 			if ( bAutoAim )
 			{
-				if ( IsEnemy(Target) )
-				{
-					CurrentTarget.Target=Target;
-					CurrentTarget.TEnemy=True;
-					CurrentTarget.TOffset=GetTargetOffset(Target);
-					CurrentTarget.TVisible=CurrentTarget.TOffset != vect(0,0,0);
-					CurrentTarget.TFireMode=GetFireMode(Target);
-				} 
-				else
-				{
-					CurrentTarget=ClearTargetInfo(CurrentTarget);
-				}	
-				// Check to see that this Target should be considered as a target to aim at		
-				if ( GoodWeapon() && IsEnemy(Target) && PlayerVisible(Target) )
+				if ( GoodWeapon() && Me.LineOfSightTo(Target) )
 				{	
-					BestTarget = GetBestTarget(BestTarget, CurrentTarget);
-					// The "GetBestTarget" function will return the BestTarget we have so far
-					// So lets store it in the variable "BestTarget"
-					// Notice that "BestTarget" can change when we progress through our Player Cycle
+					if(CurrentTarget == None)
+					{
+						CurrentTarget = Target;
+					}
+					if ( VSize(Target.Location - Me.Location) < VSize(CurrentTarget.Location - Me.Location) )
+					{
+						CurrentTarget = Target;
+					}
 
-					SetPawnRotation(BestTarget);
-					// execute the code that will set our Rotation so we look directly at the "BestTarget"
-		
-					// Check if the feature "AutoFire" is active
-					if ( bAutoFire )
-					{
-						FireMyWeapon();
-						// execute the code that will make our Weapon Fire
-					}
-					else
-					{
-						StopMyWeapon();
-						// If we don't have a Target to Aim at we should stop our weapon from shooting
-					}
-					return BestTarget;
+					SetPawnRotation(CurrentTarget);
 				}
 
 			}
@@ -213,9 +175,19 @@ function TargetStruct PawnRelated(Canvas Canvas)
 // This function gets called from the "PawnRelated" function to see if a Target is Valid
 function bool ValidTarget (Pawn Target)
 {
+	if(Target.IsA('FortStandard') && Me.PlayerReplicationInfo.Team != Assault(Target.Level.Game).Defender.TeamIndex)
+	{
+		return true;
+	}
+
+	if(Target.IsA('TeamCannon') && !TeamCannon(Target).SameTeamAs(Me.PlayerReplicationInfo.Team))
+	{
+		return true;
+	}
+
 	if ( 
 		(Target != None) && // Target variable is Not Empty
-		(Target != Me) && // Target is Not ower own Player
+		(Target != Me) && //Target is Not ower own Player
 		(!Target.bHidden) && // Target is Not hidden
 		(Target.bIsPlayer) && // Target is an actual player
 		(Target.Health > 0) && // Target is still alive
@@ -226,8 +198,23 @@ function bool ValidTarget (Pawn Target)
 		(!Target.PlayerReplicationInfo.bWaitingPlayer) // Target is Not somebody that is pending to get into the game
 	   )
 	{
-		Return True;
-		// If all the above condition are met we return True else we return False
+		if ( Me.GameReplicationInfo != None && Me.GameReplicationInfo.bTeamGame )
+		{
+			// Check to see if Target is on the Opposit Team
+			if ( Target.PlayerReplicationInfo.Team != Me.PlayerReplicationInfo.Team )
+			{
+				Return True;
+			}
+			else
+			{
+				Return False;
+			}
+		}
+		else
+		{
+			Return True;
+			// If it is not a Teambased game every Target is an Enemy
+		}
 	}
 	else
 	{
@@ -235,93 +222,10 @@ function bool ValidTarget (Pawn Target)
 	}		
 }
 
-
-// This function gets called from the "PawnRelated" function to see if a Target is the Opposit Team
-function bool IsEnemy (Pawn Target)
-{
-	// Check to see if we are in a Teambased Gamemode
-	if ( Me.GameReplicationInfo != None && Me.GameReplicationInfo.bTeamGame )
-	{
-		// Check to see if Target is on the Opposit Team
-		if ( Target.PlayerReplicationInfo.Team != Me.PlayerReplicationInfo.Team )
-		{
-			Return True;
-		}
-		else
-		{
-			Return False;
-		}
-	}
-	else
-	{
-		Return True;
-		// If it is not a Teambased game every Target is an Enemy
-	}
-}
-
-
 // This function gets called from the "PawnRelated" function to see if we are holding a Good Weapon
 function bool GoodWeapon ()
 {
-	if (
-		( Me.Weapon != None ) && // Our Weapon is Not None
-		( Me.Weapon.AmmoType != None ) && // Our Weapon uses Ammo
-		( Me.Weapon.AmmoType.AmmoAmount > 0) // We still have Ammo left
-	   )
-	{
-		Return True;
-	}
-	else
-	{
-		Return False;
-	}
-}
-
-
-// This function gets called from the "PawnRelated" function to see which Target is better
-function TargetStruct GetBestTarget (TargetStruct BestTarget, TargetStruct CurrentTarget)
-{
-	if ( BestTarget.Target == None )
-	{
-		return CurrentTarget;
-	} 
-	else 
-	{
-		if ( (CurrentTarget.Target.PlayerReplicationInfo.HasFlag != None) && (BestTarget.Target.PlayerReplicationInfo.HasFlag == None) )
-		{
-			return CurrentTarget;
-		}
-		
-		if ( VSize(CurrentTarget.Target.Location - Me.Location) < VSize(BestTarget.Target.Location - Me.Location) )
-		{
-			return CurrentTarget;
-		}
-	}
-	
-	return BestTarget;
-}
-
-
-// This function gets called from the "PawnRelated" function to see if a Target is Visible
-function bool PlayerVisible (Pawn Target)
-{
-	local vector  HisLocation;
-	local vector  MyLocation;
-	
-	// Store our location in a vector and add our EyeHeight to it
-	// so we have a vector that holds the place of our Eyes
-	MyLocation = Me.Location;
-	MyLocation.Z += Me.BaseEyeHeight;
-	
-	// Store the Target's location in a vector
-	// We can't add their EyeHeight to it because the Server doesn't send the correct value to Client
-	HisLocation = Target.Location;
-	HisLocation.Z += Target.CollisionHeight * 0.7;
-	
-	// Lets do a Trace from our location to his location
-	// The Trace will return true if there is no object blocking the path between both Vectors
-	// Notice that Tracing takes up CPU power and a lot of Traces will cause UT to run slow or lag
-	if ( Me.FastTrace(HisLocation, MyLocation) )
+	if (Me.Weapon != None)
 	{
 		Return True;
 	}
@@ -334,57 +238,6 @@ function bool PlayerVisible (Pawn Target)
 //////////////////////////////////////////////////////////////
 //TEST
 //////////////////////////////////////////////////////////////
-function int GetFireMode (Actor Target)
-{
-	if ( Me.Weapon == None )
-	{
-		return 1;
-	}
-	
-	if ( Me.Weapon.IsA('minigun2') )
-	{
-		if ( VSize(Target.Location - Me.Location) >= 830 )
-		{
-			return 1;
-		} 
-		else 
-		{
-			return 2;
-		}
-	}
-
-	if( Me.Weapon.IsA('PulseGun') )
-	{
-		if( VSize(Target.Location - Me.Location) <= 1000 )
-		{
-			return 2;
-		}
-		else
-		{
-			return 1;
-		}
-	}
-
-	
-	if ( Me.Weapon.bInstantHit )
-	{
-		return 1;
-	}
-	
-	if ( Me.Weapon.bAltInstantHit )
-	{
-		return 2;
-	}
-	
-	if ( Me.Weapon.ProjectileSpeed >= Me.Weapon.AltProjectileSpeed )
-	{
-		return 1;
-	} 
-	else 
-	{
-		return 2;
-	}
-}
 
 function Vector GetTargetOffset (Pawn Target)
 {
@@ -394,110 +247,97 @@ function Vector GetTargetOffset (Pawn Target)
 
 	Start=MuzzleCorrection(Target);
 	End=Target.Location;
-	End += PrePingCorrection(Target);
-	
-	if ( (Me.Weapon != None) && Me.Weapon.IsA('UT_Eightball') )
-	{
-		vAuto=vect(0,0,-23);
-	} 
-	else
-	{
-		if ( Target.Velocity.Z < -370 )
-		{
-			vAuto=vect(0,0,20);
-		} 
-		else 
-		{
-			if ( (Target.CollisionHeight < 30.00) || (Target.GetAnimGroup(Target.AnimSequence) == 'Ducking') )
-			{
-				vAuto=vect(0,0,25);
-			}
-			else 
-			{
-				vAuto=vect(0,0,0);
-				
-				vAuto.Z=FClamp(35.00 - VSize(Target.Location - Me.Location) / 48 * 0.50,20.00,35.00);
-				
-				if ( (Target.Velocity.Z > 30) && (Target.Velocity.Z < 300) )
-				{
-					vAuto.Z += 2;
-				}
-			}
-		}
-	}
-	
+	End += PrePingCorrection(Target); 
+	vAuto = vect(0,0,0);
 
+	vAuto.Z = Me.BaseEyeHeight;
+	
+	//Try high
 	if ( Me.FastTrace(End + vAuto,Start) )
 	{
 		return vAuto;
 	}
-}
 
-function TargetStruct ClearTargetInfo (TargetStruct Target)
-{
-	Target.Target=None;
-	Target.TOffset=vect(0,0,0);
-	Target.TVisible=False;
-	Target.TEnemy=False;
-	Target.TFireMode=1;
-	Target.TWarning=-1;
+	vAuto.Z = 0.90 * Target.CollisionHeight;
+
+	//Try head
+	if( Me.FastTrace(End + vAuto,Start) )
+	{
+		return vAuto;
+	}
+
+	vAuto.Z = -0.5 * Target.CollisionHeight;;
+	//Try low
+	if ( Me.FastTrace(End + vAuto,Start) )
+	{
+		return vAuto;
+	}
+
 	
-	return Target;
 }
 
-function Vector PingCorrection (Actor Target)
+function Vector PingCorrection (Pawn Target)
 {
 	return Target.Velocity * FClamp(Me.PlayerReplicationInfo.Ping,20.00,200.00) / 1000;
 	
 	//return vect(0,0,0);
 }
 
-function Vector PrePingCorrection (Actor Target)
+function Vector PrePingCorrection (Pawn Target)
 {
 	return PingCorrection(Target) / 2;
 }
 
-function Vector MuzzleCorrection (Actor Target)
+function Vector MuzzleCorrection (Pawn Target)
 {
 	local Vector Correction;
+	local Vector MyLocation;
 
-	if ( (Me.Weapon != None) && (Me.DesiredFOV == Me.DefaultFOV) )
+	MyLocation = Me.Location;
+	MyLocation.Z += Me.BaseEyeHeight;
+
+	if (Me.Weapon != None)
 	{
-		Correction=0.90 / Me.FovAngle * Me.Weapon.PlayerViewOffset >> rotator(Target.Location - Me.Location);
+		Correction = Me.Weapon.FireOffset;
 	}
 	
-	Correction.Z=Me.BaseEyeHeight;
-	
-	return Me.Location + Correction;
+	return MyLocation + Correction;
 }
 
-function SetPawnRotation (TargetStruct BestTarget)
+function SetPawnRotation (Pawn Target)
 {
 	local Vector Start;
 	local Vector End;
+	local Vector Predict;
 
-	Start=MuzzleCorrection(BestTarget.Target);
-	End=BestTarget.Target.Location;
-	End += BestTarget.TOffset;
-	End += PingCorrection(BestTarget.Target);
-	End += BulletSpeedCorrection(BestTarget.Target,BestTarget.TFireMode);
+	Start=MuzzleCorrection(Target);
+	End=Target.Location;
+	End += GetTargetOffset(Target);
+	End += PingCorrection(Target);
+
+	Predict = End + BulletSpeedCorrection(Target);
+
+	if(Me.FastTrace(Predict, Start))
+	{
+		End = Predict;
+	}
 	
 	SetMyRotation(End,Start);
 }
 
-function Vector BulletSpeedCorrection (Actor Target, int FireMode)
+function Vector BulletSpeedCorrection (Pawn Target)
 {
 	local float BulletSpeed;
 	local Vector Correction;
-
-	if (Me.Weapon != None && !(Me.Weapon.IsA('PulseGun') && FireMode == 2))
+	
+	if (Me.Weapon != None)
 	{
-		if ( (FireMode == 1) &&  !Me.Weapon.bInstantHit )
+		if ( (LastFireMode == 1) &&  !Me.Weapon.bInstantHit )
 		{
 			BulletSpeed=Me.Weapon.ProjectileSpeed;
 		}
 		
-		if ( (FireMode == 2) &&  !Me.Weapon.bAltInstantHit )
+		if ( (LastFireMode == 2) &&  !Me.Weapon.bAltInstantHit )
 		{
 			BulletSpeed=Me.Weapon.AltProjectileSpeed;
 		}
@@ -505,8 +345,8 @@ function Vector BulletSpeedCorrection (Actor Target, int FireMode)
 		if ( BulletSpeed > 0 )
 		{
 			Correction=Target.Velocity * VSize(Target.Location - Me.Location) / BulletSpeed;
-			//Correction.Z=0.00;
-			return Correction;
+
+			return Correction;			
 		}
 	}
 	
@@ -523,143 +363,128 @@ function SetMyRotation (Vector End, Vector Start)
 	local Rotator Rot;
 
 	Rot=Normalize(rotator(End - Start));
+
+	Rot=RotateSlow(Normalize(Me.ViewRotation),Rot);
 	
 	Me.ViewRotation=Rot;
 	Me.SetRotation(Rot);
 	Me.ClientSetLocation(Me.Location,Rot);
 }
 
-
-// This function gets called from the "PawnRelated" function to Start Fireing
-function FireMyWeapon ()
+function Rotator RotateSlow (Rotator RotA, Rotator RotB)
 {
-	// set BotIsShooting to true so we can use this variable later to check if the bot is shooting or we shot manually
-	bBotIsShooting = True;
+	local Rotator RotC;
+	local int Pitch;
+	local int Yaw;
+	local int Roll;
+	local bool Bool1;
+	local bool Bool2;
+	local bool Bool3;
 
-	// Turn on Primary Fire an Simulate that we are pressing the Fire Button
-	Me.bFire=1;
-	Me.bAltFire=0;
-	Me.Fire();
-}
-
-
-// This function gets called from the "PawnRelated" function to Stop our weapon
-function StopMyWeapon ()
-{
-	// Check to see if the bot turned on fire or we shot manually
-	if ( bBotIsShooting )
+	Bool1=Abs(RotA.Pitch - RotB.Pitch) <= MySetSlowSpeed;
+	Bool2=Abs(RotA.Yaw - RotB.Yaw) <= MySetSlowSpeed;
+	Bool3=Abs(RotA.Roll - RotB.Roll) <= MySetSlowSpeed;
+	
+	if ( RotA.Pitch < RotB.Pitch )
 	{
-		// The bot stopped shooting so lets set BotIsShooting  to false 
-		bBotIsShooting = False;
-
-		// Deactivate all fire modes
-		Me.bFire=0;
-		Me.bAltFire=0;
-	}	
-}
-
-
-// This function gets called from the "PawnRelated" function to Draw a Player in the 3D Radar
-function DrawPlayerOnRadar (Pawn Target, Canvas Canvas)
-{
-	local vector MyLocation;
-	local vector TargetLocation;
-	local vector DiffLocation;
-	local vector X,Y,Z;
-	
-	local float  ScreenPosX;
-	local float  ScreenPosY;
-	
-	local string DistanceInfo;
-	local string HealthInfo;
-	local string NameInfo;
-	
-	// I think you know this by now :P
-	MyLocation = Me.Location;
-	MyLocation.Z += Me.EyeHeight;
-	
-	// And again
-	TargetLocation = Target.Location;
-	TargetLocation.Z += Target.CollisionHeight / 2;
-	
-	// Substract both locations and store it in a variable
-	DiffLocation = TargetLocation - MyLocation;
-	
-	// This is a bit more complicated
-	// We have to devide our own ViewRotation into different axels
-	GetAxes(Normalize(Me.ViewRotation),X,Y,Z);
-	
-	// Check to see if the Player is Not behind us
-	// If we didn't do this check we should draw players on the radar that are behind us
-	if (DiffLocation Dot X > 0.70)
+		Pitch=1;
+	} 
+	else 
 	{
-		// This is even more complicated
-		// It converts a vector in a 3D space to a 2D Screen
-		// It takes into acount the Screen Resolution and the Zoom level that you are currently using
-		ScreenPosX = (Canvas.ClipX / 2) + ( (DiffLocation Dot Y)) * ((Canvas.ClipX / 2) / Tan(Me.FovAngle * Pi/360)) / (DiffLocation Dot X);
-		ScreenPosY = (Canvas.ClipY / 2) + (-(DiffLocation Dot Z)) * ((Canvas.ClipX / 2) / Tan(Me.FovAngle * Pi/360)) / (DiffLocation Dot X);
-		
-		// Set the position or on Screen so we can draw a cross at that position
-		Canvas.SetPos(ScreenPosX - 8, ScreenPosY - 8);
-		// Set the DrawColor to match the TeamColor of the Target
-		Canvas.DrawColor = GetTeamColor(Target);
-		// Draw the actual Cross on Screen
-		Canvas.DrawIcon(Texture'MyCross', 0.5);
-		
-
-		// A cross on a screen doesn't hold much info so lets draw some extra info next to it
-		NameInfo     = Target.PlayerReplicationInfo.PlayerName;
-		HealthInfo   = "H: " $ String(Target.Health);
-		DistanceInfo = "D: " $ String(Int(VSize(DiffLocation) / 48));
-		
-		// Set the Font of your text to small so we don't fill up an entire screen
-		Canvas.Font = Canvas.SmallFont;
-		
-		// Draw the Extra Info next to then Cross
-		Canvas.SetPos(ScreenPosX + 10, ScreenPosY - 8 );
-		Canvas.DrawText(NameInfo);
-		
-		Canvas.SetPos(ScreenPosX + 10, ScreenPosY );
-		Canvas.DrawText(HealthInfo);
-		
-		Canvas.SetPos(ScreenPosX + 10, ScreenPosY + 8);
-		Canvas.DrawText(DistanceInfo);		
-		
-	}
-}
-
-
-// This function gets called from the "DrawPlayerOnRadar" function to determine the TeamColor of a Target
-function Color GetTeamColor (Pawn Target)
-{
-	local Color TeamColor;
-	
-	// Determine which Team the Target is on
-	switch( Target.PlayerReplicationInfo.Team )
-	{
-		Case 0: // Red Team
-			TeamColor.R = 229;
-			TeamColor.G = 60;
-			TeamColor.B = 60;
-			TeamColor.A = 0;
-			Break;
-
-		Case 1: // Blue Team
-			TeamColor.R = 90;
-			TeamColor.G = 160;
-			TeamColor.B = 229;
-			TeamColor.A = 0;
-			Break;
-
-		Default: // Green or Default Team
-			TeamColor.R = 60;
-			TeamColor.G = 229;
-			TeamColor.B = 60;
-			TeamColor.A = 0;
-			Break;	
+		Pitch=-1;
 	}
 	
-	Return TeamColor;	
+	if ( (RotA.Yaw > 0) && (RotB.Yaw > 0) )
+	{
+		if ( RotA.Yaw < RotB.Yaw )
+		{
+			Yaw=1;
+		} 
+		else 
+		{
+			Yaw=-1;
+		}
+	} 
+	else 
+	{
+		if ( (RotA.Yaw < 0) && (RotB.Yaw < 0) )
+		{
+			if ( RotA.Yaw < RotB.Yaw )
+			{
+				Yaw=1;
+			} 
+			else 
+			{
+				Yaw=-1;
+			}
+		} 
+		else 
+		{
+			if ( (RotA.Yaw < 0) && (RotB.Yaw > 0) )
+			{
+				if ( Abs(RotA.Yaw) + RotB.Yaw < 32768 )
+				{
+					Yaw=1;
+				} 
+				else 
+				{
+					Yaw=-1;
+				}
+			} 
+			else 
+			{
+				if ( (RotA.Yaw > 0) && (RotB.Yaw < 0) )
+				{
+					if ( RotA.Yaw + Abs(RotB.Yaw) < 32768 )
+					{
+						Yaw=-1;
+					} 
+					else 
+					{
+						Yaw=1;
+					}
+				}
+			}
+		}
+	}
+	
+	if ( RotA.Roll < RotB.Roll )
+	{
+		Roll=1;
+	} 
+	else 
+	{
+		Roll=-1;
+	}
+	
+	if ( !Bool1 )
+	{
+		RotC.Pitch=RotA.Pitch + Pitch * MySetSlowSpeed;
+	} 
+	else 
+	{
+		RotC.Pitch=RotB.Pitch;
+	}
+	
+	if ( !Bool2 )
+	{
+		RotC.Yaw=RotA.Yaw + Yaw * MySetSlowSpeed;
+	} 
+	else 
+	{
+		RotC.Yaw=RotB.Yaw;
+	}
+	
+	if ( !Bool3 )
+	{
+		RotC.Roll=RotA.Roll + Roll * MySetSlowSpeed;
+	}
+	else 
+	{
+		RotC.Roll=RotB.Roll;
+	}
+	
+	return Normalize(RotC);
 }
 
 
@@ -695,16 +520,16 @@ exec function doAutoAim ()
 	Msg("AutoAim = " $ string(bAutoAim));
 }
 
-exec function doAutoFire ()
+exec function AddSpeed()
 {
-	bAutoFire = !bAutoFire;
-	Msg("AutoFire = " $ string(bAutoFire));
+	MySetSlowSpeed += 100;
+	Msg("Speed = " $ string(MySetSlowSpeed));
 }
 
-exec function doRadar ()
+exec function ReduceSpeed()
 {
-	bDrawRadar = !bDrawRadar;
-	Msg("Radar = " $ string(bDrawRadar));
+	MySetSlowSpeed -= 100;
+	Msg("Speed = " $ string(MySetSlowSpeed));
 }
 
 exec function doSave ()
@@ -726,8 +551,8 @@ defaultproperties
 	// Do NOT use Spaces here 
 	bBotActive=True;
 	bAutoAim=True;
-	bAutoFire=True;
-	bDrawRadar=True;
+	MySetSlowSpeed=600;
+	LastFireMode=1;
 }
 
 
