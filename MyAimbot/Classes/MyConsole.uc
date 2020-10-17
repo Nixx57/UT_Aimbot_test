@@ -139,7 +139,7 @@ function PawnRelated(Canvas Canvas)
 {
 	local Pawn Target;
 
-	if(!Me.LineOfSightTo(CurrentTarget) || !ValidTarget(Target))
+	if(!Me.LineOfSightTo(CurrentTarget) || !ValidTarget(CurrentTarget))
 	{
 		CurrentTarget = None;
 	}
