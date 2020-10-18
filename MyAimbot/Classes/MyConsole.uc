@@ -247,7 +247,6 @@ function Vector GetTargetOffset (Pawn Target)
 
 	Start=MuzzleCorrection(Target);
 	End=Target.Location;
-	End += PrePingCorrection(Target); 
 	vAuto = vect(0,0,0);
 
 	vAuto.Z = Me.BaseEyeHeight;
@@ -276,18 +275,6 @@ function Vector GetTargetOffset (Pawn Target)
 	
 }
 
-function Vector PingCorrection (Pawn Target)
-{
-	return Target.Velocity * FClamp(Me.PlayerReplicationInfo.Ping,20.00,200.00) / 1000;
-	
-	//return vect(0,0,0);
-}
-
-function Vector PrePingCorrection (Pawn Target)
-{
-	return PingCorrection(Target) / 2;
-}
-
 function Vector MuzzleCorrection (Pawn Target)
 {
 	local Vector Correction,X,Y,Z;
@@ -311,7 +298,6 @@ function SetPawnRotation (Pawn Target)
 	Start=MuzzleCorrection(Target);
 	End=Target.Location;
 	End += GetTargetOffset(Target);
-	End += PingCorrection(Target);
 
 	Predict = End + BulletSpeedCorrection(Target);
 
