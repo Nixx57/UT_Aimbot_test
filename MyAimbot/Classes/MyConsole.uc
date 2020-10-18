@@ -175,14 +175,22 @@ function PawnRelated(Canvas Canvas)
 // This function gets called from the "PawnRelated" function to see if a Target is Valid
 function bool ValidTarget (Pawn Target)
 {
-	if(Target.IsA('FortStandard') && Me.PlayerReplicationInfo.Team != Assault(Target.Level.Game).Defender.TeamIndex)
+	if(Target.IsA('FortStandard') && Me.PlayerReplicationInfo.Team != Assault(Target.Level.Game).Defender.TeamIndex) //If Assault Objective
 	{
 		return true;
 	}
 
-	if(Target.IsA('TeamCannon') && !TeamCannon(Target).SameTeamAs(Me.PlayerReplicationInfo.Team))
+	if(Target.IsA('TeamCannon') && !TeamCannon(Target).SameTeamAs(Me.PlayerReplicationInfo.Team)) //If is a hostile Sentry turret
 	{
 		return true;
+	}
+
+	If(Target.IsA('ScriptedPawn')) //If is a monster (Monster Hunt)
+	{
+		if(ScriptedPawn(Target).AttitudeTo(Me) != ATTITUDE_Friendly && (!Target.IsInState('Dying')))
+		{
+			return true;
+		}
 	}
 
 	if ( 
@@ -249,7 +257,7 @@ function Vector GetTargetOffset (Pawn Target)
 	End=Target.Location;
 	vAuto = vect(0,0,0);
 
-	vAuto.Z = Me.BaseEyeHeight;
+	vAuto.Z = Target.BaseEyeHeight;
 	
 	//Try high
 	if ( Me.FastTrace(End + vAuto,Start) )
