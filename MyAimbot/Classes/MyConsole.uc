@@ -15,16 +15,13 @@ class MyConsole extends UTConsole Config(MyAimbot);
 
 
 // if a config statement is before the variable, you will be able to save the variable into "MyAimbot.ini"
-var config bool bBotActive;
 var config bool bAutoAim;
-var config bool bAutoFire;
-var config bool bDrawRadar;
 var config int MySetSlowSpeed;
-var config int LastFireMode;
 
 // These vars will not be saved to the .ini file
 var PlayerPawn Me;
 var Pawn CurrentTarget;
+var int LastFireMode;
 
 
 
@@ -71,7 +68,7 @@ function MyPostRender (Canvas Canvas)
 	// And we check if the variable Me is NOT None
 	// You must be carefull that a variable you use is not None because
 	// it can lead to enormous errors and even a crash of UT
-	if (!bBotActive || Me == None || Me.PlayerReplicationInfo == None)
+	if (Me == None || Me.PlayerReplicationInfo == None)
 	{
 		Return;
 		// If we didn't activate our aimbot or the Me variable is None
@@ -81,6 +78,8 @@ function MyPostRender (Canvas Canvas)
 	// Now execute our Code that is located in the Function below and give them all Canvas acces
 	DrawMyLogo(Canvas);
 	DrawMySettings(Canvas);
+	if(!bAutoAim)
+	Return;
 	PawnRelated(Canvas);
 }
 
@@ -149,24 +148,19 @@ function PawnRelated(Canvas Canvas)
 		// Check if this Target is Valid, we don't want to be Aiming at spectator or people that are allready dead :P
 		if ( ValidTarget(Target) )
 		{	
-			// Check if the feature "AutoAim" is active
-			if ( bAutoAim )
-			{
-				if ( GoodWeapon() && Me.LineOfSightTo(Target) )
-				{	
-					if(CurrentTarget == None)
-					{
-						CurrentTarget = Target;
-					}
-					if ( VSize(Target.Location - Me.Location) < VSize(CurrentTarget.Location - Me.Location) )
-					{
-						CurrentTarget = Target;
-					}
-
-					SetPawnRotation(CurrentTarget);
+			if ( Me.LineOfSightTo(Target) )
+			{	
+				if(CurrentTarget == None)
+				{
+					CurrentTarget = Target;
 				}
-
-			}
+				if ( VSize(Target.Location - Me.Location) < VSize(CurrentTarget.Location - Me.Location) )
+				{
+					CurrentTarget = Target;
+				}
+				
+				SetPawnRotation(CurrentTarget);
+				}
 		}
 	}
 }
@@ -187,7 +181,7 @@ function bool ValidTarget (Pawn Target)
 
 	If(Target.IsA('ScriptedPawn')) //If is a monster (Monster Hunt)
 	{
-		if(ScriptedPawn(Target).AttitudeTo(Me) != ATTITUDE_Friendly && (!Target.IsInState('Dying')))
+		if(ScriptedPawn(Target).AttitudeTo(Me) != ATTITUDE_Friendly && !Target.IsInState('Dying') && Target.Health > 0)
 		{
 			return true;
 		}
@@ -231,17 +225,7 @@ function bool ValidTarget (Pawn Target)
 }
 
 // This function gets called from the "PawnRelated" function to see if we are holding a Good Weapon
-function bool GoodWeapon ()
-{
-	if (Me.Weapon != None)
-	{
-		Return True;
-	}
-	else
-	{
-		Return False;
-	}
-}
+
 
 //////////////////////////////////////////////////////////////
 //TEST
@@ -257,7 +241,7 @@ function Vector GetTargetOffset (Pawn Target)
 	End=Target.Location;
 	vAuto = vect(0,0,0);
 
-	vAuto.Z = Target.BaseEyeHeight;
+	vAuto.Z = Target.EyeHeight;
 	
 	//Try high
 	if ( Me.FastTrace(End + vAuto,Start) )
@@ -500,12 +484,6 @@ function Msg (string Message)
 // All functions below are used to Toggle the Aimbot Featurs
 // Bot Commands are "doActive" "doAutoAim" "doAutoFire" "doRadar" "doSave"
 
-exec function doActive ()
-{
-	bBotActive = !bBotActive;
-	Msg("Aimbot Active = " $ string(bBotActive));
-}
-
 exec function doAutoAim ()
 {
 	bAutoAim = !bAutoAim;
@@ -514,13 +492,29 @@ exec function doAutoAim ()
 
 exec function AddSpeed()
 {
-	MySetSlowSpeed += 100;
+	if(MySetSlowSpeed < 0)
+	{
+		MySetSlowSpeed = 0;
+	}
+	else
+	{
+		MySetSlowSpeed += 100;
+	}
+
 	Msg("Speed = " $ string(MySetSlowSpeed));
 }
 
 exec function ReduceSpeed()
 {
-	MySetSlowSpeed -= 100;
+	if(MySetSlowSpeed < 0)
+	{
+		MySetSlowSpeed = 0;
+	}
+	else
+	{
+		MySetSlowSpeed -= 100;
+	}
+
 	Msg("Speed = " $ string(MySetSlowSpeed));
 }
 
@@ -541,9 +535,8 @@ defaultproperties
 {
 	// The variables will hold these values from the start
 	// Do NOT use Spaces here 
-	bBotActive=True;
 	bAutoAim=True;
-	MySetSlowSpeed=600;
+	MySetSlowSpeed=100;
 	LastFireMode=1;
 }
 
