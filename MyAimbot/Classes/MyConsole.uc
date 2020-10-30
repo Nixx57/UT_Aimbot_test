@@ -164,55 +164,6 @@ function bool ValidTarget (Pawn Target)
 //////////////////////////////////////////////////////////////
 //TEST
 //////////////////////////////////////////////////////////////
-
-function Vector GetTargetOffset (Pawn Target)
-{
-	local Vector Start;
-	local Vector End;
-	local Vector vAuto;
-
-	local Vector HitLocation, HitNormal;
-
-	Start=MuzzleCorrection(Target);
-	End=Target.Location;
-	vAuto = vect(0,0,0);
-
-	vAuto.Z = Target.EyeHeight;
-
-	if(Me.Weapon.IsA('UT_EightBall') && Target.Velocity != vect(0,0,0))
-	{
-		vAuto.Z = -1 * Target.CollisionHeight;
-	}
-
-	if (Me.Trace(HitLocation, HitNormal, End, Start) == Target )
-	{
-		return vAuto;
-	}
-
-	vAuto.X = RandRange(-1.0, 1.0) * Target.CollisionRadius;
-	vAuto.Y = RandRange(-1.0, 1.0) * Target.CollisionRadius;
-	vAuto.Z = RandRange(-1.0, 1.0) * Target.CollisionHeight;
-
-	if (Me.Trace(HitLocation, HitNormal, End, Start) == Target )
-	{
-		return vAuto;
-	}
-}
-
-function Vector MuzzleCorrection (Pawn Target)
-{
-	local Vector Correction,X,Y,Z;
-	
-	GetAxes(Me.ViewRotation,X,Y,Z);
-
-	if (Me.Weapon != None)
-	{
-		Correction = Me.Location + Me.Weapon.CalcDrawOffset() + Me.Weapon.FireOffset.X * X + Me.Weapon.FireOffset.Y * Y + Me.Weapon.FireOffset.Z * Z;
-	}
-	
-	return Correction;
-}
-
 function SetPawnRotation (Pawn Target)
 {
 	local Vector Start;
@@ -235,6 +186,54 @@ function SetPawnRotation (Pawn Target)
 		}
 
 		SetMyRotation(End,Start);
+	}
+}
+
+function Vector MuzzleCorrection (Pawn Target)
+{
+	local Vector Correction,X,Y,Z;
+	
+	GetAxes(Me.ViewRotation,X,Y,Z);
+
+	if (Me.Weapon != None)
+	{
+		Correction = Me.Location + Me.Weapon.CalcDrawOffset() + Me.Weapon.FireOffset.X * X + Me.Weapon.FireOffset.Y * Y + Me.Weapon.FireOffset.Z * Z;
+	}
+	
+	return Correction;
+}
+
+function Vector GetTargetOffset (Pawn Target)
+{
+	local Vector Start;
+	local Vector End;
+	local Vector vAuto;
+
+	local Vector HitLocation, HitNormal;
+
+	Start=MuzzleCorrection(Target);
+	End=Target.Location;
+	vAuto = vect(0,0,0);
+
+	vAuto.Z = Target.EyeHeight;
+
+	if ( (LastFireMode == 1 && Me.Weapon.bRecommendSplashDamage || LastFireMode == 2 && Me.Weapon.bRecommendAltSplashDamage) && Target.Velocity != vect(0,0,0))
+	{
+		vAuto.Z = -1 * Target.CollisionHeight;
+	}
+
+	if (Me.Trace(HitLocation, HitNormal, End + vAuto, Start) == Target )
+	{
+		return vAuto;
+	}
+
+	vAuto.X = RandRange(-1.0, 1.0) * Target.CollisionRadius;
+	vAuto.Y = RandRange(-1.0, 1.0) * Target.CollisionRadius;
+	vAuto.Z = RandRange(-1.0, 1.0) * Target.CollisionHeight;
+
+	if (Me.Trace(HitLocation, HitNormal, End + vAuto, Start) == Target )
+	{
+		return vAuto;
 	}
 }
 
