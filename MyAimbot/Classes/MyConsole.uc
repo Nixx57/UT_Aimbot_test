@@ -2,40 +2,19 @@
 // BOT START.
 //=====================================================================================
 class MyConsole extends UTConsole Config(MyAimbot);
-// MyConsole : This must match the filename you are programming in
-// UTConsole : This is the Class your script extends
-// Config(MyAimbot) : Your bot settings will be saved in the "MyAimbot.ini" file
 
-
-#exec Texture Import File=Textures\MyCross.bmp Name=MyCross 
-#exec Texture Import File=Textures\MyLogo.bmp  Name=MyLogo 
-// #exec lines are used to tell the compiler it should Import a texture or sound
-// In this case you will Import the file "MyCross.bmp" and give it the variable name "MyCross"
-// The same goes for MyLogo.bmp
-
-
-// if a config statement is before the variable, you will be able to save the variable into "MyAimbot.ini"
 var config bool bAutoAim;
 var config int MySetSlowSpeed;
 
-// These vars will not be saved to the .ini file
 var PlayerPawn Me;
 var Pawn CurrentTarget;
 var int LastFireMode;
 
-
-
-// Hook into the PostRender event to get Canvas acces
-// If you have Canvas acces you are able to write and show stuff onto your Screen
 event PostRender (Canvas Canvas)
 {
 	Super.PostRender(Canvas); 
-	// This will execute all the code that is located into the "PostRender" event we have just overwritten
-	// Don't forget this
 
 	MyPostRender(Canvas);
-	// Ok now execute our own code located into the "MyPostRender" function
-	// We pass on Canvas acces to our function too so we can Draw stuff on Screen
 }
 
 
@@ -54,65 +33,26 @@ exec function AltFire(optional float F)
 	LastFireMode=2;
 }
 
-// This is where the magic happens :P
-// It is the start of our own Aimbot code
+
 function MyPostRender (Canvas Canvas)
 {
 
 	Me = Viewport.Actor;
-	// We give the Variable "Me" the value "Viewport.Actor"
-	// "Me" now hold our own Player (PlayerPawn)
-	
 
-	// This is a check if we activated our Aimbot
-	// And we check if the variable Me is NOT None
-	// You must be carefull that a variable you use is not None because
-	// it can lead to enormous errors and even a crash of UT
 	if (Me == None || Me.PlayerReplicationInfo == None)
 	{
 		Return;
-		// If we didn't activate our aimbot or the Me variable is None
-		// we stop this function with the "Return" statement
 	}
-	
-	// Now execute our Code that is located in the Function below and give them all Canvas acces
-	DrawMyLogo(Canvas);
-	DrawMySettings(Canvas);
+		
 	if(!bAutoAim)
 	Return;
+	DrawMySettings(Canvas);
 	PawnRelated(Canvas);
 }
 
 
-// Let us draw a nice bot logo on screen so you can show off your newly created aimbot to your friends :P
-function DrawMyLogo (Canvas Canvas)
-{
-	Canvas.Style = 3;
-	// set the Canvas Style to transparant
-
-	Canvas.bCenter = False;
-	// we don't want it in the center of the screen
-
-	Canvas.bNoSmooth = True;
-
-	// Divide the screen height by 3
-	Canvas.SetPos(20, Canvas.ClipY / 3);
-	
-	// set the DrawColor to White
-	Canvas.DrawColor.R = 229;
-	Canvas.DrawColor.G = 229;
-	Canvas.DrawColor.B = 229;
-	Canvas.DrawColor.A = 0;	
-	
-	// Draw our 1337 Logo :P
-	Canvas.DrawIcon(Texture'MyLogo', 0.7);
-}
-
-
-// It is allways usefull to show on screen what features of the Aimbot are On/Off
 function DrawMySettings (Canvas Canvas)
 {
-	// set the Font to small so we don't fill up an entire screen by just writing some settings
 	Canvas.Font = Canvas.SmallFont;
 	
 	Canvas.SetPos(20, Canvas.ClipY / 2);
@@ -133,7 +73,6 @@ function DrawMySettings (Canvas Canvas)
 }
 
 
-// This function holds the code that will cycle through all Players on the Map
 function PawnRelated(Canvas Canvas)
 {
 	local Pawn Target;
@@ -142,10 +81,9 @@ function PawnRelated(Canvas Canvas)
 	{
 		CurrentTarget = None;
 	}
-	// Cycle through all players (Pawns) on the Map and store them in a temporarry variable "Target"
+
 	foreach Me.Level.AllActors(Class'Pawn', Target)
 	{
-		// Check if this Target is Valid, we don't want to be Aiming at spectator or people that are allready dead :P
 		if ( ValidTarget(Target) )
 		{	
 			if ( Me.LineOfSightTo(Target) )
@@ -160,13 +98,12 @@ function PawnRelated(Canvas Canvas)
 				}
 				
 				SetPawnRotation(CurrentTarget);
-				}
+			}
 		}
 	}
 }
 
 
-// This function gets called from the "PawnRelated" function to see if a Target is Valid
 function bool ValidTarget (Pawn Target)
 {
 	if(Target.IsA('FortStandard') && Me.PlayerReplicationInfo.Team != Assault(Target.Level.Game).Defender.TeamIndex) //If Assault Objective
@@ -224,9 +161,6 @@ function bool ValidTarget (Pawn Target)
 	}		
 }
 
-// This function gets called from the "PawnRelated" function to see if we are holding a Good Weapon
-
-
 //////////////////////////////////////////////////////////////
 //TEST
 //////////////////////////////////////////////////////////////
@@ -237,34 +171,32 @@ function Vector GetTargetOffset (Pawn Target)
 	local Vector End;
 	local Vector vAuto;
 
+	local Vector HitLocation, HitNormal;
+
 	Start=MuzzleCorrection(Target);
 	End=Target.Location;
 	vAuto = vect(0,0,0);
 
 	vAuto.Z = Target.EyeHeight;
-	
-	//Try high
-	if ( Me.FastTrace(End + vAuto,Start) )
+
+	if(Me.Weapon.IsA('UT_EightBall') && Target.Velocity != vect(0,0,0))
+	{
+		vAuto.Z = -1 * Target.CollisionHeight;
+	}
+
+	if (Me.Trace(HitLocation, HitNormal, End, Start) == Target )
 	{
 		return vAuto;
 	}
 
-	vAuto.Z = 0.90 * Target.CollisionHeight;
+	vAuto.X = RandRange(-1.0, 1.0) * Target.CollisionRadius;
+	vAuto.Y = RandRange(-1.0, 1.0) * Target.CollisionRadius;
+	vAuto.Z = RandRange(-1.0, 1.0) * Target.CollisionHeight;
 
-	//Try head
-	if( Me.FastTrace(End + vAuto,Start) )
+	if (Me.Trace(HitLocation, HitNormal, End, Start) == Target )
 	{
 		return vAuto;
 	}
-
-	vAuto.Z = -0.5 * Target.CollisionHeight;;
-	//Try low
-	if ( Me.FastTrace(End + vAuto,Start) )
-	{
-		return vAuto;
-	}
-
-	
 }
 
 function Vector MuzzleCorrection (Pawn Target)
@@ -287,18 +219,23 @@ function SetPawnRotation (Pawn Target)
 	local Vector End;
 	local Vector Predict;
 
+	local Vector HitLocation,HitNormal;
+
 	Start=MuzzleCorrection(Target);
 	End=Target.Location;
 	End += GetTargetOffset(Target);
 
 	Predict = End + BulletSpeedCorrection(Target);
 
-	if(Me.FastTrace(Predict, Start))
+	if(Me.Trace(HitLocation, HitNormal, End, Start) == Target)
 	{
-		End = Predict;
+		if(Me.FastTrace(Predict, Start))
+		{
+			End = Predict;
+		}
+
+		SetMyRotation(End,Start);
 	}
-	
-	SetMyRotation(End,Start);
 }
 
 function Vector BulletSpeedCorrection (Pawn Target)
@@ -333,7 +270,6 @@ function Vector BulletSpeedCorrection (Pawn Target)
 //////////////////////////////////////////////////////////////
 
 
-// This function gets called from the "PawnRelated" function to set our View direclty to the BestTarget
 function SetMyRotation (Vector End, Vector Start)
 {
 	local Rotator Rot;
@@ -533,10 +469,8 @@ exec function doSave ()
 
 defaultproperties
 {
-	// The variables will hold these values from the start
-	// Do NOT use Spaces here 
 	bAutoAim=True;
-	MySetSlowSpeed=100;
+	MySetSlowSpeed=600;
 	LastFireMode=1;
 }
 
