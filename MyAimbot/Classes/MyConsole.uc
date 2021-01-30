@@ -9,6 +9,7 @@ var config int MySetSlowSpeed;
 var PlayerPawn Me;
 var Pawn CurrentTarget;
 var int LastFireMode;
+var Vector AltOffset;
 
 event PostRender (Canvas Canvas)
 {
@@ -47,6 +48,7 @@ function MyPostRender (Canvas Canvas)
 	if(!bAutoAim)
 	Return;
 	DrawMySettings(Canvas);
+	if(!Me.Weapon.IsA('Translocator'))
 	PawnRelated(Canvas);
 }
 
@@ -65,11 +67,10 @@ function DrawMySettings (Canvas Canvas)
 	Canvas.DrawText("AutoAim  : " $ String(bAutoAim));
 
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 40);
-	Canvas.DrawText("RotationSpeed    : " $ String(MySetSlowSpeed));
+	Canvas.DrawText("RotationSpeed  : " $ String(MySetSlowSpeed));
 
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 60);
-	Canvas.DrawText("FireMode    : " $ String(LastFireMode));
-	
+	Canvas.DrawText("FireMode  : " $ String(LastFireMode));
 }
 
 
@@ -77,16 +78,19 @@ function PawnRelated(Canvas Canvas)
 {
 	local Pawn Target;
 
-	if(!Me.LineOfSightTo(CurrentTarget) || !ValidTarget(CurrentTarget))
+	if(CurrentTarget != None)
 	{
-		CurrentTarget = None;
+		if(!VisibleTarget(CurrentTarget) || !ValidTarget(CurrentTarget))
+		{
+			CurrentTarget = None;
+		}
 	}
 
 	foreach Me.Level.AllActors(Class'Pawn', Target)
 	{
 		if ( ValidTarget(Target) )
 		{	
-			if ( Me.LineOfSightTo(Target) )
+			if ( VisibleTarget(Target) )
 			{	
 				if(CurrentTarget == None)
 				{
@@ -103,15 +107,54 @@ function PawnRelated(Canvas Canvas)
 	}
 }
 
-
-function bool ValidTarget (Pawn Target)
+function bool VisibleTarget (Pawn Target)
 {
-	if(Target.IsA('FortStandard') && Me.PlayerReplicationInfo.Team != Assault(Target.Level.Game).Defender.TeamIndex) //If Assault Objective
+	local float VectorsX[3];
+	local float VectorsY[3];
+	local float VectorsZ[3];
+	local Vector Start, Check;
+	local int x,y,z;
+
+	if(Me.LineOfSightTo(Target) || Me.CanSee(Target))
 	{
 		return true;
 	}
 
-	if(Target.IsA('TeamCannon') && !TeamCannon(Target).SameTeamAs(Me.PlayerReplicationInfo.Team)) //If is a hostile Sentry turret
+	Start = MuzzleCorrection(Target);
+
+	VectorsX[0] = Target.Location.X + (-1.0 * Target.CollisionRadius);
+	VectorsX[1] = Target.Location.X;
+	VectorsX[2] = Target.Location.X + (1.0 * Target.CollisionRadius);
+
+	VectorsY[0] = Target.Location.Y + (-1.0 * Target.CollisionRadius);
+	VectorsY[1] = Target.Location.Y;
+	VectorsY[2] = Target.Location.Y + (1.0 * Target.CollisionRadius);
+
+	VectorsZ[0] = Target.Location.Z + (-1.0 * Target.CollisionHeight);
+	VectorsZ[1] = Target.Location.Z;
+	VectorsZ[2] = Target.Location.Z + (1.0 * Target.CollisionHeight);
+
+	for(x=0; x<=2; x++)
+	{
+		for(y=0; y<=2; y++)
+		{
+			for(z=0; z<=2; z++)
+			{
+				Check.X = VectorsX[x];
+				Check.Y = VectorsY[y];
+				Check.Z = VectorsZ[z];
+				if(Me.FastTrace(Check, Start))
+				{
+					return true;
+				}
+			}
+		}
+	}
+}
+
+function bool ValidTarget (Pawn Target)
+{
+	if(Target.IsA('FortStandard') && Me.PlayerReplicationInfo.Team != Assault(Target.Level.Game).Defender.TeamIndex) //If Assault Objective
 	{
 		return true;
 	}
@@ -169,30 +212,25 @@ function SetPawnRotation (Pawn Target)
 	local Vector Start;
 	local Vector End;
 	local Vector Predict;
-
-	local Vector HitLocation,HitNormal;
-
+	
 	Start=MuzzleCorrection(Target);
 	End=Target.Location;
 	End += GetTargetOffset(Target);
 
 	Predict = End + BulletSpeedCorrection(Target);
 
-	if(Me.Trace(HitLocation, HitNormal, End, Start) == Target)
+	if(Me.FastTrace(Predict, Start))
 	{
-		if(Me.FastTrace(Predict, Start))
-		{
-			End = Predict;
-		}
-
-		SetMyRotation(End,Start);
+		End = Predict;
 	}
+
+	SetMyRotation(End,Start);
 }
 
 function Vector MuzzleCorrection (Pawn Target)
 {
 	local Vector Correction,X,Y,Z;
-	
+
 	GetAxes(Me.ViewRotation,X,Y,Z);
 
 	if (Me.Weapon != None)
@@ -208,6 +246,7 @@ function Vector GetTargetOffset (Pawn Target)
 	local Vector Start;
 	local Vector End;
 	local Vector vAuto;
+	local Actor HitActor;
 
 	local Vector HitLocation, HitNormal;
 
@@ -215,48 +254,52 @@ function Vector GetTargetOffset (Pawn Target)
 	End=Target.Location;
 	vAuto = vect(0,0,0);
 
-	vAuto.Z = Target.EyeHeight;
+	vAuto.Z = 0.5 * Target.CollisionHeight;
+	
 
 	if ( (LastFireMode == 1 && Me.Weapon.bRecommendSplashDamage || LastFireMode == 2 && Me.Weapon.bRecommendAltSplashDamage) && Target.Velocity != vect(0,0,0))
 	{
 		vAuto.Z = -1 * Target.CollisionHeight;
 	}
 
-	if (Me.Trace(HitLocation, HitNormal, End + vAuto, Start) == Target )
+	HitActor = Me.Trace(HitLocation, HitNormal, End + vAuto, Start);
+	if (HitActor == Target || HitActor.IsA('Projectile') ) //if "standard" aim can hit target
 	{
 		return vAuto;
 	}
 
-	vAuto.X = RandRange(-1.0, 1.0) * Target.CollisionRadius;
-	vAuto.Y = RandRange(-1.0, 1.0) * Target.CollisionRadius;
-	vAuto.Z = RandRange(-1.0, 1.0) * Target.CollisionHeight;
-
-	if (Me.Trace(HitLocation, HitNormal, End + vAuto, Start) == Target )
+	HitActor = Me.Trace(HitLocation, HitNormal, End + AltOffset, Start);
+	if(HitActor == Target || HitActor.IsA('Projectile')) //if "alternative" aim can hit target
 	{
-		return vAuto;
+		return AltOffset;
 	}
+
+	AltOffset.X = RandRange(-1.0, 1.0) * Target.CollisionRadius;
+	AltOffset.Y = RandRange(-1.0, 1.0) * Target.CollisionRadius;
+	AltOffset.Z = RandRange(-1.0, 1.0) * Target.CollisionHeight;
 }
 
 function Vector BulletSpeedCorrection (Pawn Target)
 {
-	local float BulletSpeed;
+	local float BulletSpeed, TargetDist;
 	local Vector Correction;
 	
 	if (Me.Weapon != None)
 	{
 		if ( (LastFireMode == 1) &&  !Me.Weapon.bInstantHit )
 		{
-			BulletSpeed=Me.Weapon.ProjectileSpeed;
+			BulletSpeed = Me.Weapon.ProjectileClass.default.speed;
 		}
 		
 		if ( (LastFireMode == 2) &&  !Me.Weapon.bAltInstantHit )
 		{
-			BulletSpeed=Me.Weapon.AltProjectileSpeed;
+			BulletSpeed = Me.Weapon.AltProjectileClass.default.speed;
 		}
 		
 		if ( BulletSpeed > 0 )
 		{
-			Correction=Target.Velocity * VSize(Target.Location - Me.Location) / BulletSpeed;
+			TargetDist = VSize(Target.Location - MuzzleCorrection(Target));
+			Correction = Target.Velocity * TargetDist / BulletSpeed;
 
 			return Correction;			
 		}
@@ -425,6 +468,13 @@ exec function doAutoAim ()
 	Msg("AutoAim = " $ string(bAutoAim));
 }
 
+exec function SetRotationSpeed(int num)
+{
+	MySetSlowSpeed = num;
+
+	Msg("Rotation Speed = " $ string(MySetSlowSpeed));
+}
+
 exec function AddSpeed()
 {
 	if(MySetSlowSpeed < 0)
@@ -436,12 +486,12 @@ exec function AddSpeed()
 		MySetSlowSpeed += 100;
 	}
 
-	Msg("Speed = " $ string(MySetSlowSpeed));
+	Msg("Rotation Speed = " $ string(MySetSlowSpeed));
 }
 
 exec function ReduceSpeed()
 {
-	if(MySetSlowSpeed < 0)
+	if(MySetSlowSpeed <= 0)
 	{
 		MySetSlowSpeed = 0;
 	}
@@ -450,7 +500,7 @@ exec function ReduceSpeed()
 		MySetSlowSpeed -= 100;
 	}
 
-	Msg("Speed = " $ string(MySetSlowSpeed));
+	Msg("Rotation Speed = " $ string(MySetSlowSpeed));
 }
 
 exec function doSave ()
@@ -460,6 +510,20 @@ exec function doSave ()
 	StaticSaveConfig();
 	Msg("Settings Saved");
 }
+
+exec function help()
+{
+	Msg("doAutoAim = switch ON/OFF");
+	Msg("SetRotationSpeed N = Set rotation speed at 'N' number");
+	Msg("AddSpeed = Add 100 to rotation speed");
+	Msg("ReduceSpeed = Reduce 100 to rotation speed");
+	Msg("doSave = Save Settings");
+}
+
+//================================================================================
+// TEST.
+//================================================================================
+
 
 
 //================================================================================
@@ -471,6 +535,7 @@ defaultproperties
 	bAutoAim=True;
 	MySetSlowSpeed=600;
 	LastFireMode=1;
+	AltOffset=vect(0,0,0);
 }
 
 
