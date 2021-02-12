@@ -73,6 +73,10 @@ function DrawMySettings (Canvas Canvas)
 
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 60);
 	Canvas.DrawText("FireMode  : " $ String(LastFireMode));
+
+	/////////////////////////////////
+	// DEBUG
+	/////////////////////////////////
 }
 
 
@@ -321,15 +325,6 @@ function SetMyRotation (Vector End, Vector Start)
 	Rot=Normalize(rotator(End - Start));
 
 	Rot=RotateSlow(Normalize(Me.ViewRotation),Rot);
-
-	if ( (LastFireMode == 1) && Me.Weapon.ProjectileClass.default.Physics == PHYS_Falling )
-	{
-		Rot.Pitch += optimal_angle(End, Start);
-	}
-	else if ( (LastFireMode == 2) && Me.Weapon.AltProjectileClass.default.Physics == PHYS_Falling )
-	{
-		Rot.Pitch += optimal_angle(End, Start);
-	}
 	
 	Me.ViewRotation=Rot;
 	Me.SetRotation(Rot);
@@ -549,74 +544,3 @@ defaultproperties
 // BOT END.
 //=====================================================================================
 
-function float optimal_angle(Vector End, Vector Start)
-{
-	local float g, v0, root, angle, x, y;
-	local Vector MeXY, TargetXY, MeZ, TargetZ;
-
-	MeXY.X = Start.X;
-	MeXY.Y = Start.Y;
-	MeXY.Z = 0;
-
-	TargetXY.X = End.X;
-	TargetXY.Y = End.Y;
-	TargetXY.Z = 0;
-
-	MeZ.X = 0;
-	MeZ.Y = 0;
-	MeZ.Z = Start.Z;
-
-	TargetZ.X = 0;
-	TargetZ.Y = 0;
-	TargetZ.Z = End.Z;
-
-	//x = la distance entre le départ et l'arrivé (seulement en horizontal)
-	//y = idem, mais en vertical
-
-	x = VSize(MeXY - TargetXY); //Calcule la distance entre 2 vecteurs, (VSize est fonction native)
-	y = VSize(MeZ - TargetZ);
-
-	g = Me.Region.Zone.ZoneGravity.Z; //Gravité (600 il me semble)
-
-	if ( (LastFireMode == 1) &&  !Me.Weapon.bInstantHit ) //Récupère la vitesse inital du projectile
-	{
-		v0 = Me.Weapon.ProjectileClass.default.speed;
-	}
-	else if ( (LastFireMode == 2) &&  !Me.Weapon.bAltInstantHit )
-	{
-		v0 = Me.Weapon.AltProjectileClass.default.speed;
-	}
-
-	root = v0 * v0 * v0 * v0 - g * (g * x * x + 2.0 * y * v0 * v0); //fonction recopié de l'article
-	
-	if (root < 0.0) 
-	{
-		return 0.0f;
-	}
-
-	root = sqrt(root);
-	angle = atan((v0 * v0 - root) / (g * x));
-
-	Msg(String(angle));
-	return angle;
-}
-
-// function float lob_angle(float x, float y, float v0, float g)
-// {
-// 	local float g, v0, root, angle, x, y;
-
-// 	root = v0 * v0 * v0 * v0 - g * (g * x * x + 2.0 * y * v0 * v0);
-// 	if (root < 0.0)
-// 	{
-// 		return;
-// 	}
-
-// 	root = sqrt(root);
-// 	angle = atan((v0 * v0 + root) / (g * x));
-// 	return angle;
-// }
-
-// function float travel_time(float x, float angle, float v0)
-// {
-// 	return x / (cos(angle) * v0);
-// }
