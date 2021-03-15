@@ -77,6 +77,9 @@ function DrawMySettings (Canvas Canvas)
 	/////////////////////////////////
 	// DEBUG
 	/////////////////////////////////
+
+	// Canvas.SetPos(20, Canvas.ClipY / 2 + 80);
+	// Canvas.DrawText("DEBUG  : " $ String(Me.velocity));
 }
 
 
@@ -218,6 +221,7 @@ function SetPawnRotation (Pawn Target)
 	local Vector Start;
 	local Vector End;
 	local Vector Predict;
+
 	
 	Start=MuzzleCorrection(Target);
 	End=Target.Location;
@@ -261,12 +265,6 @@ function Vector GetTargetOffset (Pawn Target)
 	vAuto = vect(0,0,0);
 
 	vAuto.Z = 0.5 * Target.CollisionHeight;
-	
-
-	if ( (LastFireMode == 1 && Me.Weapon.bRecommendSplashDamage || LastFireMode == 2 && Me.Weapon.bRecommendAltSplashDamage) && Target.Velocity != vect(0,0,0))
-	{
-		vAuto.Z = -1 * Target.CollisionHeight;
-	}
 
 	HitActor = Me.Trace(HitLocation, HitNormal, End + vAuto, Start);
 	if (HitActor == Target || HitActor.IsA('Projectile') ) //if can hit target (and ignore projectile between player and target)
@@ -305,18 +303,20 @@ function Vector BulletSpeedCorrection (Pawn Target)
 		if ( BulletSpeed > 0 )
 		{
 			TargetDist = VSize(Target.Location - MuzzleCorrection(Target));
-			Correction = Target.Velocity * TargetDist / BulletSpeed;
-
+			if(Target.Physics == PHYS_Falling)
+			{
+				Correction = Target.Velocity * TargetDist / BulletSpeed + Me.Region.Zone.ZoneGravity * Square(TargetDist / BulletSpeed) * 0.5;
+			}
+			else
+			{
+				Correction = Target.Velocity * TargetDist / BulletSpeed;
+			}
 			return Correction;			
 		}
 	}
 	
 	return vect(0,0,0);
 }
-//////////////////////////////////////////////////////////////
-//ENDTEST
-//////////////////////////////////////////////////////////////
-
 
 function SetMyRotation (Vector End, Vector Start)
 {
@@ -525,7 +525,6 @@ exec function help()
 	Msg("ReduceSpeed = Reduce 100 to rotation speed");
 	Msg("doSave = Save Settings");
 }
-
 
 //================================================================================
 // DEFAULTS.
