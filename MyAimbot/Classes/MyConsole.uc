@@ -5,6 +5,8 @@ class MyConsole extends UTConsole Config(MyAimbot);
 
 var config bool bAutoAim;
 var config int MySetSlowSpeed;
+var config bool bUseSplash;
+var config bool bRotateSlow;
 
 var PlayerPawn Me;
 var Pawn CurrentTarget;
@@ -74,12 +76,18 @@ function DrawMySettings (Canvas Canvas)
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 60);
 	Canvas.DrawText("FireMode  : " $ String(LastFireMode));
 
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 80);
+	Canvas.DrawText("Use Splash  : " $ String(bUseSplash));
+
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 100);
+	Canvas.DrawText("Rotate Slow  : " $ String(bRotateSlow));
+
 	/////////////////////////////////
 	// DEBUG
 	/////////////////////////////////
 
-	// Canvas.SetPos(20, Canvas.ClipY / 2 + 80);
-	// Canvas.DrawText("DEBUG  : " $ String(Me.velocity));
+	// Canvas.SetPos(20, Canvas.ClipY / 2 + 120);
+	// Canvas.DrawText("Me  : " $ String(Viewport.Actor));
 }
 
 
@@ -264,7 +272,18 @@ function Vector GetTargetOffset (Pawn Target)
 	End=Target.Location;
 	vAuto = vect(0,0,0);
 
-	vAuto.Z = 0.5 * Target.CollisionHeight;
+	if(bUseSplash && 
+	((LastFireMode == 1 && Me.Weapon.bRecommendSplashDamage) || (LastFireMode == 2 && Me.Weapon.bRecommendAltSplashDamage)) && 
+	Target.Physics == PHYS_Walking && 
+	Target.Velocity != vect(0,0,0))
+	{
+		vAuto.Z = -0.9 * Target.CollisionHeight;
+	}
+	else
+	{
+		vAuto.Z = 0.5 * Target.CollisionHeight;
+	}
+	
 
 	HitActor = Me.Trace(HitLocation, HitNormal, End + vAuto, Start);
 	if (HitActor == Target || HitActor.IsA('Projectile') ) //if can hit target (and ignore projectile between player and target)
@@ -324,7 +343,10 @@ function SetMyRotation (Vector End, Vector Start)
 
 	Rot=Normalize(rotator(End - Start));
 
-	Rot=RotateSlow(Normalize(Me.ViewRotation),Rot);
+	if(bRotateSlow)
+	{
+		Rot=RotateSlow(Normalize(Me.ViewRotation),Rot);
+	}
 	
 	Me.ViewRotation=Rot;
 	Me.SetRotation(Rot);
@@ -509,6 +531,18 @@ exec function ReduceSpeed()
 	Msg("Rotation Speed = " $ string(MySetSlowSpeed));
 }
 
+exec function UseSplash()
+{
+	bUseSplash = !bUseSplash;
+	Msg("Use Splash = " $ string(bUseSplash));
+}
+
+exec function UseRotateSlow()
+{
+	bRotateSlow = !bRotateSlow;
+	Msg("Rotate Slow = "$ string(bRotateSlow));
+}
+
 exec function doSave ()
 {
 	// We want to save some settings to the "MyAimbot.ini" file so lets call a Native function to do that
@@ -520,12 +554,13 @@ exec function doSave ()
 exec function help()
 {
 	Msg("doAutoAim = switch ON/OFF");
-	Msg("SetRotationSpeed N = Set rotation speed at 'N' number");
-	Msg("IncreaseSpeed = Add 100 to rotation speed");
-	Msg("ReduceSpeed = Reduce 100 to rotation speed");
+	Msg("SetRotationSpeed 'NUMBER' = Set rotation speed at 'NUMBER'");
+	Msg("IncreaseSpeed = +100 to rotation speed");
+	Msg("ReduceSpeed = -100 to rotation speed");
+	Msg("UseSplash = Aim feet with rocket laucher");
+	Msg("UseRotateSlow = enable/disable smooth aiming");
 	Msg("doSave = Save Settings");
 }
-
 //================================================================================
 // DEFAULTS.
 //================================================================================
@@ -536,6 +571,8 @@ defaultproperties
 	MySetSlowSpeed=600;
 	LastFireMode=1;
 	AltOffset=vect(0,0,0);
+	bUseSplash=1;
+	bRotateSlow=0;
 }
 
 
