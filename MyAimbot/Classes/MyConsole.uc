@@ -7,6 +7,7 @@ var config bool bAutoAim;
 var config int MySetSlowSpeed;
 var config bool bUseSplash;
 var config bool bRotateSlow;
+var config bool bDebug;
 
 var PlayerPawn Me;
 var Pawn CurrentTarget;
@@ -20,6 +21,15 @@ event PostRender (Canvas Canvas)
 	MyPostRender(Canvas);
 }
 
+event Tick( float Delta )
+{
+	Super.Tick( Delta );
+
+	if ( (Root != None) && bShowMessage )
+		Root.DoTick( Delta );
+
+	Begin();
+}
 
 //================================================================================
 // MAIN BOT.
@@ -27,19 +37,17 @@ event PostRender (Canvas Canvas)
 
 exec function Fire(optional float F)
 {
-	Me.Fire();
 	LastFireMode=1;
+	Me.Fire();
 }
 exec function AltFire(optional float F)
 {
-	Me.AltFire();
 	LastFireMode=2;
+	Me.AltFire();
 }
 
-
-function MyPostRender (Canvas Canvas)
+function Begin()
 {
-
 	Me = Viewport.Actor;
 
 	if (Me == None || Me.PlayerReplicationInfo == None)
@@ -47,13 +55,16 @@ function MyPostRender (Canvas Canvas)
 		Return;
 	}
 		
-	if(!bAutoAim)
+	if(!bAutoAim || Me.IsInState('GameEnded'))
 	Return;
-
-	DrawMySettings(Canvas);
-
+	
 	if(!Me.Weapon.IsA('Translocator'))
-	PawnRelated(Canvas);
+	PawnRelated();
+}
+
+function MyPostRender (Canvas Canvas)
+{
+	DrawMySettings(Canvas);
 }
 
 
@@ -86,12 +97,18 @@ function DrawMySettings (Canvas Canvas)
 	// DEBUG
 	/////////////////////////////////
 
-	// Canvas.SetPos(20, Canvas.ClipY / 2 + 120);
-	// Canvas.DrawText("Me  : " $ String(Viewport.Actor));
+	if(bDebug)
+	{
+		Canvas.SetPos(20, Canvas.ClipY / 2 + 120);
+		Canvas.DrawText("---DEBUG---");
+
+		Canvas.SetPos(20, Canvas.ClipY / 2 + 140);
+		Canvas.DrawText("Physics  : " $  GetEnum(enum'EPhysics', CurrentTarget.Physics));
+	}
 }
 
 
-function PawnRelated(Canvas Canvas)
+function PawnRelated()
 {
 	local Pawn Target;
 
@@ -117,10 +134,12 @@ function PawnRelated(Canvas Canvas)
 				{
 					CurrentTarget = Target;
 				}
-				
-				SetPawnRotation(CurrentTarget);
 			}
 		}
+	}
+	if(CurrentTarget != None)
+	{
+		SetPawnRotation(CurrentTarget);
 	}
 }
 
@@ -171,14 +190,10 @@ function bool VisibleTarget (Pawn Target)
 
 function bool ValidTarget (Pawn Target)
 {
-	if(Target.IsA('FortStandard') && Me.PlayerReplicationInfo.Team != Assault(Target.Level.Game).Defender.TeamIndex) //If Assault Objective
-	{
-		return true;
-	}
-
 	If(Target.IsA('ScriptedPawn')) //If is a monster (Monster Hunt)
 	{
-		if(ScriptedPawn(Target).AttitudeTo(Me) != ATTITUDE_Friendly && !Target.IsInState('Dying') && Target.Health > 0)
+		if(ScriptedPawn(Target).AttitudeTo(Me) < 4 &&
+		!Target.IsInState('Dying') && Target.Health > 0)
 		{
 			return true;
 		}
@@ -197,7 +212,7 @@ function bool ValidTarget (Pawn Target)
 		(!Target.PlayerReplicationInfo.bWaitingPlayer) // Target is Not somebody that is pending to get into the game
 	   )
 	{
-		if ( Me.GameReplicationInfo != None && Me.GameReplicationInfo.bTeamGame )
+		if ( Me.GameReplicationInfo.bTeamGame )
 		{
 			// Check to see if Target is on the Opposit Team
 			if ( Target.PlayerReplicationInfo.Team != Me.PlayerReplicationInfo.Team )
@@ -221,9 +236,6 @@ function bool ValidTarget (Pawn Target)
 	}		
 }
 
-//////////////////////////////////////////////////////////////
-//TEST
-//////////////////////////////////////////////////////////////
 function SetPawnRotation (Pawn Target)
 {
 	local Vector Start;
@@ -306,6 +318,7 @@ function Vector BulletSpeedCorrection (Pawn Target)
 {
 	local float BulletSpeed, TargetDist;
 	local Vector Correction;
+
 	
 	if (Me.Weapon != None)
 	{
@@ -349,8 +362,8 @@ function SetMyRotation (Vector End, Vector Start)
 	}
 	
 	Me.ViewRotation=Rot;
-	Me.SetRotation(Rot);
-	Me.ClientSetLocation(Me.Location,Rot);
+	//Me.SetRotation(Rot);
+	//Me.ClientSetLocation(Me.Location,Rot);
 }
 
 function Rotator RotateSlow (Rotator RotA, Rotator RotB)
@@ -543,7 +556,13 @@ exec function UseRotateSlow()
 	Msg("Rotate Slow = "$ string(bRotateSlow));
 }
 
-exec function doSave ()
+exec function UseDebug()
+{
+	bDebug = !bDebug;
+	Msg("bDebug = "$ string(bDebug));
+}
+
+exec function doSave()
 {
 	// We want to save some settings to the "MyAimbot.ini" file so lets call a Native function to do that
 	SaveConfig();
@@ -559,6 +578,7 @@ exec function help()
 	Msg("ReduceSpeed = -100 to rotation speed");
 	Msg("UseSplash = Aim feet with rocket laucher");
 	Msg("UseRotateSlow = enable/disable smooth aiming");
+	Msg("UseDebug = enable/disable debug info (dev)");
 	Msg("doSave = Save Settings");
 }
 //================================================================================
@@ -573,6 +593,7 @@ defaultproperties
 	AltOffset=vect(0,0,0);
 	bUseSplash=1;
 	bRotateSlow=0;
+	bDebug=0;
 }
 
 
