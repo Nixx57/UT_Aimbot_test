@@ -103,10 +103,12 @@ function DrawMySettings (Canvas Canvas)
 		Canvas.DrawText("---DEBUG---");
 
 		Canvas.SetPos(20, Canvas.ClipY / 2 + 140);
-		Canvas.DrawText("Physics  : " $  GetEnum(enum'EPhysics', CurrentTarget.Physics));
+		Canvas.DrawText("Physics  : " $  GetEnum(enum'EPhysics', CurrentTarget.PlayerReplicationInfo.Physics));
+
+		// Canvas.SetPos(20, Canvas.ClipY / 2 + 160);
+		// Canvas.DrawText("Owner  : " $  CurrentTarget.Owner);
 	}
 }
-
 
 function PawnRelated()
 {
@@ -286,8 +288,8 @@ function Vector GetTargetOffset (Pawn Target)
 
 	if(bUseSplash && 
 	((LastFireMode == 1 && Me.Weapon.bRecommendSplashDamage) || (LastFireMode == 2 && Me.Weapon.bRecommendAltSplashDamage)) && 
-	Target.Physics == PHYS_Walking && 
-	Target.Velocity != vect(0,0,0))
+	Target.Velocity != vect(0,0,0) &&
+	Target.Velocity.Z == 0)
 	{
 		vAuto.Z = -0.9 * Target.CollisionHeight;
 	}
@@ -317,8 +319,9 @@ function Vector GetTargetOffset (Pawn Target)
 function Vector BulletSpeedCorrection (Pawn Target)
 {
 	local float BulletSpeed, TargetDist;
-	local Vector Correction;
+	local Vector Correction, GravityCorrection, Start;
 
+	Start = MuzzleCorrection(Target);
 	
 	if (Me.Weapon != None)
 	{
@@ -334,10 +337,13 @@ function Vector BulletSpeedCorrection (Pawn Target)
 		
 		if ( BulletSpeed > 0 )
 		{
-			TargetDist = VSize(Target.Location - MuzzleCorrection(Target));
-			if(Target.Physics == PHYS_Falling)
+			TargetDist = VSize(Target.Location - Start);
+			GravityCorrection = Target.Velocity * TargetDist / BulletSpeed + Target.Region.Zone.ZoneGravity * Square(TargetDist / BulletSpeed) * 0.5;
+
+			if(TargetFall(Target) && Me.FastTrace(GravityCorrection, Start))
 			{
-				Correction = Target.Velocity * TargetDist / BulletSpeed + Me.Region.Zone.ZoneGravity * Square(TargetDist / BulletSpeed) * 0.5;
+				
+				Correction = Target.Velocity * TargetDist / BulletSpeed + Target.Region.Zone.ZoneGravity * Square(TargetDist / BulletSpeed) * 0.5;
 			}
 			else
 			{
@@ -348,6 +354,18 @@ function Vector BulletSpeedCorrection (Pawn Target)
 	}
 	
 	return vect(0,0,0);
+}
+
+function bool TargetFall(Pawn Target)
+{
+	if((Target.Physics == PHYS_Falling || (!Target.bCanFly && !Target.Region.Zone.bWaterZone)))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 function SetMyRotation (Vector End, Vector Start)
@@ -600,4 +618,3 @@ defaultproperties
 //=====================================================================================
 // BOT END.
 //=====================================================================================
-
