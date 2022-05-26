@@ -6,6 +6,7 @@ class MyConsole extends UTConsole Config(MyAimbot);
 var config bool bAutoAim;
 var config int MySetSlowSpeed;
 var config bool bUseSplash;
+var config bool bAimPlayers;
 var config bool bRotateSlow;
 var config bool bDebug;
 
@@ -82,16 +83,23 @@ function DrawMySettings (Canvas Canvas)
 	Canvas.DrawText("AutoAim  : " $ String(bAutoAim));
 
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 40);
-	Canvas.DrawText("RotationSpeed  : " $ String(MySetSlowSpeed));
-
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 60);
-	Canvas.DrawText("FireMode  : " $ String(LastFireMode));
-
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 80);
 	Canvas.DrawText("Use Splash  : " $ String(bUseSplash));
 
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 100);
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 60);
 	Canvas.DrawText("Rotate Slow  : " $ String(bRotateSlow));
+
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 80);
+	Canvas.DrawText("Aim Players  : " $ String(bAimPlayers));
+
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 90);
+	Canvas.DrawText("----------");	
+
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 100);
+	Canvas.DrawText("RotationSpeed  : " $ String(MySetSlowSpeed));
+
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 120);
+	Canvas.DrawText("FireMode  : " $ String(LastFireMode));
+
 
 	/////////////////////////////////
 	// DEBUG
@@ -99,10 +107,10 @@ function DrawMySettings (Canvas Canvas)
 
 	if(bDebug)
 	{
-		Canvas.SetPos(20, Canvas.ClipY / 2 + 120);
+		Canvas.SetPos(20, Canvas.ClipY / 2 + 140);
 		Canvas.DrawText("---DEBUG---");
 
-		Canvas.SetPos(20, Canvas.ClipY / 2 + 140);
+		Canvas.SetPos(20, Canvas.ClipY / 2 + 160);
 		Canvas.DrawText("Physics  : " $  GetEnum(enum'EPhysics', CurrentTarget.PlayerReplicationInfo.Physics));
 
 		// Canvas.SetPos(20, Canvas.ClipY / 2 + 160);
@@ -201,40 +209,43 @@ function bool ValidTarget (Pawn Target)
 		}
 	}
 
-	if ( 
-		(Target != None) && // Target variable is Not Empty
-		(Target != Me) && //Target is Not ower own Player
-		(!Target.bHidden) && // Target is Not hidden
-		(Target.bIsPlayer) && // Target is an actual player
-		(Target.Health > 0) && // Target is still alive
-		(!Target.IsInState('Dying')) && // Target is Not Dying
-		(!Target.IsA('StaticPawn')) && // Target is Not a Static Box or Crate
-		(Target.PlayerReplicationInfo != None) && // Target has Replication info
-		(!Target.PlayerReplicationInfo.bIsSpectator) && // Target is Not a spectator
-		(!Target.PlayerReplicationInfo.bWaitingPlayer) // Target is Not somebody that is pending to get into the game
-	   )
+	If(bAimPlayers)
 	{
-		if ( Me.GameReplicationInfo.bTeamGame )
+		if ( 
+			(Target != None) && // Target variable is Not Empty
+			(Target != Me) && //Target is Not ower own Player
+			(!Target.bHidden) && // Target is Not hidden
+			(Target.bIsPlayer) && // Target is an actual player
+			(Target.Health > 0) && // Target is still alive
+			(!Target.IsInState('Dying')) && // Target is Not Dying
+			(!Target.IsA('StaticPawn')) && // Target is Not a Static Box or Crate
+			(Target.PlayerReplicationInfo != None) && // Target has Replication info
+			(!Target.PlayerReplicationInfo.bIsSpectator) && // Target is Not a spectator
+			(!Target.PlayerReplicationInfo.bWaitingPlayer) // Target is Not somebody that is pending to get into the game
+		)
 		{
-			// Check to see if Target is on the Opposit Team
-			if ( Target.PlayerReplicationInfo.Team != Me.PlayerReplicationInfo.Team )
+			if ( Me.GameReplicationInfo.bTeamGame )
 			{
-				Return True;
+				// Check to see if Target is on the Opposit Team
+				if ( Target.PlayerReplicationInfo.Team != Me.PlayerReplicationInfo.Team )
+				{
+					Return True;
+				}
+				else
+				{
+					Return False;
+				}
 			}
 			else
 			{
-				Return False;
+				Return True;
+				// If it is not a Teambased game every Target is an Enemy
 			}
 		}
 		else
 		{
-			Return True;
-			// If it is not a Teambased game every Target is an Enemy
+			Return False;
 		}
-	}
-	else
-	{
-		Return False;
 	}		
 }
 
@@ -243,6 +254,8 @@ function SetPawnRotation (Pawn Target)
 	local Vector Start;
 	local Vector End;
 	local Vector Predict;
+	local Projectile Ball;
+	local Pawn BallTarget;
 
 	
 	Start=MuzzleCorrection(Target);
@@ -254,6 +267,26 @@ function SetPawnRotation (Pawn Target)
 	if(Me.FastTrace(Predict, Start))
 	{
 		End = Predict;
+	}
+
+	if(Me.Weapon.IsA('ShockRifle') || Me.Weapon.IsA('ASMD'))
+	{
+		foreach Me.Level.AllActors(Class'Projectile', Ball)
+		{
+			if(Ball.IsA('ShockProj') || Ball.IsA('TazerProj'))
+			{
+				foreach Me.Level.AllActors(Class'Pawn', BallTarget)
+				{
+					if ( ValidTarget(BallTarget) )
+					{	
+						if (VSize(Target.Location - Ball.Location) < (250 + Target.CollisionRadius) && Me.LineOfSightTo(Ball))
+						{	
+							End = Ball.Location;
+						}		
+					}
+				}
+			}
+		}
 	}
 
 	SetMyRotation(End,Start);
@@ -578,6 +611,12 @@ exec function UseDebug()
 {
 	bDebug = !bDebug;
 	Msg("bDebug = "$ string(bDebug));
+}
+
+exec function AimPlayers()
+{
+	bAimPlayers = !bAimPlayers;
+	Msg("bAimPlayers = "$ string(bAimPlayers));
 }
 
 exec function doSave()
