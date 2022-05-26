@@ -1,20 +1,22 @@
-Simple aimbot for Unreal Tournament (1999) made in UnrealScript
+Simple aimbot for Unreal Tournament (1999) made in UnrealScript <br />
+/!\ Ineffective against anti-cheat /!\
 
-Features : 
-- Slow rotation
-- Combo shock (if enemy is close of shock ball)
-- Trajectory calculation, according to the velocity of the projectiles and the gravity (if the enemy fall)
-- Work on NPC (coop gamemode)
 
-How to use :
+<h3>Features : </h3>
+- Slow rotation<br />
+- Combo shock (if enemy is close of shock ball)<br />
+- Trajectory calculation, according to the velocity of the projectiles and the gravity (if the enemy fall)<br />
+- Work on NPC (coop gamemode)<br />
+<br />
+<h3>How to use :</h3>
 1) Copy the "MyAimbot" folder in UT99 root directory
-2) In System/UnrealTournament.ini :
-  a) Add (or replace) : Console=MyAimbot.MyConsole in [Engine.Engine]
-  b) Add : EditPackages=MyAimbot in [Editor.EditorEngine]
+2) In System/UnrealTournament.ini :<br />
+a) Add (or replace) : Console=MyAimbot.MyConsole in [Engine.Engine] <br />
+b) Add : EditPackages=MyAimbot in [Editor.EditorEngine]
 3) Exec "CompileMyAimbot.bat"
 4) Ingame, type "help" in console for see commands list
 
-Tips :
+<h4>Tips :</h4>
 Bind your keys to commands in User.ini
 Example : 
 MouseButton4=doAutoaim
