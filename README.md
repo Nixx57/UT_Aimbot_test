@@ -16,9 +16,9 @@ b) Add : EditPackages=MyAimbot in [Editor.EditorEngine] <br />
 3) Exec "CompileMyAimbot.bat" <br />
 4) Ingame, type "help" in console for see commands list <br /> <br />
 
-<h4>Tips :</h4>
-Bind your keys to commands in User.ini
-Example : 
-MouseButton4=doAutoaim
-PageUp=IncreaseSpeed
+<h4>Tips :</h4> <br />
+Bind your keys to commands in User.ini <br />
+Example : <br />
+MouseButton4=doAutoaim <br />
+PageUp=IncreaseSpeed <br />
 PageDown=ReduceSpeed
