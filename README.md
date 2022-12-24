@@ -12,9 +12,9 @@ Simple aimbot for Unreal Tournament (1999) made in UnrealScript <br />
 1) Copy the "MyAimbot" folder in UT99 root directory <br />
 2) In System/UnrealTournament.ini :<br />
 a) Add (or replace) : Console=MyAimbot.MyConsole in [Engine.Engine] <br />
-b) Add : EditPackages=MyAimbot in [Editor.EditorEngine]
-3) Exec "CompileMyAimbot.bat"
-4) Ingame, type "help" in console for see commands list
+b) Add : EditPackages=MyAimbot in [Editor.EditorEngine] <br />
+3) Exec "CompileMyAimbot.bat" <br />
+4) Ingame, type "help" in console for see commands list <br /> <br />
 
 <h4>Tips :</h4>
 Bind your keys to commands in User.ini
