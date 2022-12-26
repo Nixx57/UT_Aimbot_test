@@ -645,12 +645,13 @@ exec function help()
 defaultproperties
 {
 	bAutoAim=True;
-	MySetSlowSpeed=600;
+	MySetSlowSpeed=300;
 	LastFireMode=1;
 	AltOffset=vect(0,0,0);
 	bUseSplash=1;
 	bRotateSlow=0;
 	bDebug=0;
+	bAimPlayers=1
 }
 
 
