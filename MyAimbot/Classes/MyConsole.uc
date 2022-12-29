@@ -15,6 +15,11 @@ var Pawn CurrentTarget;
 var int LastFireMode;
 var Vector AltOffset;
 
+var Vector Destination;
+var Actor TargetToFollow;
+var string Status;
+var Actor NextNode;
+
 event PostRender (Canvas Canvas)
 {
 	Super.PostRender(Canvas); 
@@ -30,6 +35,17 @@ event Tick( float Delta )
 		Root.DoTick( Delta );
 
 	Begin();
+	if(Destination != vect(0, 0, 0) || TargetToFollow != None)
+	{
+		MoveToDestination();
+	}
+	else
+	{
+		if(Status != "Normal")
+		{
+			Status = "Normal";
+		}
+	}
 }
 
 //================================================================================
@@ -59,7 +75,7 @@ function Begin()
 	if(!bAutoAim || Me.IsInState('GameEnded'))
 	Return;
 	
-	if(!Me.Weapon.IsA('Translocator'))
+	if(Me.Weapon != None && !Me.Weapon.IsA('Translocator'))
 	PawnRelated();
 }
 
@@ -100,6 +116,9 @@ function DrawMySettings (Canvas Canvas)
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 120);
 	Canvas.DrawText("FireMode  : " $ String(LastFireMode));
 
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 140);
+	Canvas.DrawText("Status  : " $ Status);
+
 
 	/////////////////////////////////
 	// DEBUG
@@ -107,14 +126,17 @@ function DrawMySettings (Canvas Canvas)
 
 	if(bDebug)
 	{
-		Canvas.SetPos(20, Canvas.ClipY / 2 + 140);
+		Canvas.SetPos(20, Canvas.ClipY / 2 + 160);
 		Canvas.DrawText("---DEBUG---");
 
-		Canvas.SetPos(20, Canvas.ClipY / 2 + 160);
+		Canvas.SetPos(20, Canvas.ClipY / 2 + 180);
 		Canvas.DrawText("Physics  : " $  GetEnum(enum'EPhysics', CurrentTarget.PlayerReplicationInfo.Physics));
 
-		// Canvas.SetPos(20, Canvas.ClipY / 2 + 160);
-		// Canvas.DrawText("Owner  : " $  CurrentTarget.Owner);
+		Canvas.SetPos(20, Canvas.ClipY / 2 + 200);
+		Canvas.DrawText("aForward : " $  Me.aForward);
+
+		Canvas.SetPos(20, Canvas.ClipY / 2 + 220);
+		Canvas.DrawText("aStrafe : " $  Me.aStrafe);
 	}
 }
 
@@ -276,14 +298,12 @@ function SetPawnRotation (Pawn Target)
 			if(Ball.IsA('ShockProj') || Ball.IsA('TazerProj'))
 			{
 				foreach Me.Level.AllActors(Class'Pawn', BallTarget)
-				{
-					if ( ValidTarget(BallTarget) )
+				{	
+					if (ValidTarget(BallTarget) && VSize(BallTarget.Location - Ball.Location) < (250 + BallTarget.CollisionRadius) && Me.LineOfSightTo(Ball))
 					{	
-						if (VSize(Target.Location - Ball.Location) < (250 + Target.CollisionRadius) && Me.LineOfSightTo(Ball))
-						{	
-							End = Ball.Location;
-						}		
-					}
+						End = Ball.Location;
+						break;
+					}						
 				}
 			}
 		}
@@ -333,13 +353,13 @@ function Vector GetTargetOffset (Pawn Target)
 	
 
 	HitActor = Me.Trace(HitLocation, HitNormal, End + vAuto, Start);
-	if (HitActor == Target || HitActor.IsA('Projectile') ) //if can hit target (and ignore projectile between player and target)
+	if (HitActor != None && (HitActor == Target || HitActor.IsA('Projectile')) ) //if can hit target (and ignore projectile between player and target)
 	{
 		return vAuto;
 	}
 
 	HitActor = Me.Trace(HitLocation, HitNormal, End + AltOffset, Start);
-	if(HitActor == Target || HitActor.IsA('Projectile'))
+	if(HitActor != None && (HitActor == Target || HitActor.IsA('Projectile')))
 	{
 		return AltOffset;
 	}
@@ -415,6 +435,57 @@ function SetMyRotation (Vector End, Vector Start)
 	Me.ViewRotation=Rot;
 	//Me.SetRotation(Rot);
 	//Me.ClientSetLocation(Me.Location,Rot);
+}
+
+function MoveToDestination()
+{
+	local float Distance, MyRot;
+	local Vector Dir;
+
+	if(NextNode != None && (VSize(NextNode.Location - Me.Location) < 64.0f || !Me.FastTrace(NextNode.Location, Me.Location)))
+	{
+		Msg("Node reached");
+		NextNode.Destroy();
+		NextNode = None;
+	}
+
+	if(Destination != vect(0, 0, 0) && NextNode == None)
+	{
+    	Distance = Me.VSize(Destination - Me.Location);
+		if (Distance > 200.0f)
+    	{	
+			NextNode = Me.FindPathTo(Destination, True, True);
+			Status = "Moving...";
+		}
+		else
+		{
+			MoveStop();
+			Msg("Destination reached");
+		}
+	}
+	else if(TargetToFollow != None && NextNode == None) 
+	{
+		NextNode = Me.FindPathToward(TargetToFollow, True, True); 
+		Status = "Following...";
+	}
+
+	if(NextNode != None)
+	{
+		MyRot = Normalize(Me.ViewRotation).Yaw * 360 / 65536;
+
+		if(MyRot < 0)
+		{
+			MyRot += 360;
+		}
+
+		MyRot = MyRot * Pi / 180;
+
+		Dir = Normal(NextNode.Location - Me.Location);
+		Msg("Node dist : "$ VSize(Me.Location - NextNode.Location));
+
+		Me.aForward = Cos(MyRot) * Dir.X + Sin(MyRot) * Dir.Y;
+		Me.aStrafe = -Sin(MyRot) * Dir.X + Cos(MyRot) * Dir.Y;
+	}
 }
 
 function Rotator RotateSlow (Rotator RotA, Rotator RotB)
@@ -638,6 +709,125 @@ exec function help()
 	Msg("UseDebug = enable/disable debug info (dev)");
 	Msg("doSave = Save Settings");
 }
+
+exec function GodModeTeam(int Disable)
+{
+	local Pawn Target;
+
+	if(Disable == 1)
+	{
+		foreach Me.Level.AllActors(Class'Pawn', Target)
+		{
+			
+			if 
+			( 
+				(Target != None) && // Target variable is Not Empty
+				(Target != Me) && //Target is Not ower own Player
+				(Target.PlayerReplicationInfo != None) && // Target has Replication info
+				(!Target.PlayerReplicationInfo.bIsSpectator) && // Target is Not a spectator
+				(!Target.PlayerReplicationInfo.bWaitingPlayer) && // Target is Not somebody that is pending to get into the game
+				(Me.GameReplicationInfo.bTeamGame) &&
+				(Target.PlayerReplicationInfo.Team == Me.PlayerReplicationInfo.Team)
+			)
+			{
+				Target.ReducedDamageType = 'All';
+			}
+		}
+		Msg("God Mode Team on");
+	}
+	else if(Disable == 0)
+	{
+		foreach Me.Level.AllActors(Class'Pawn', Target)
+		{
+			if 
+			( 
+				(Target != None) && // Target variable is Not Empty
+				(Target != Me) && //Target is Not ower own Player
+				(Target.PlayerReplicationInfo != None) && // Target has Replication info
+				(!Target.PlayerReplicationInfo.bIsSpectator) && // Target is Not a spectator
+				(!Target.PlayerReplicationInfo.bWaitingPlayer) && // Target is Not somebody that is pending to get into the game
+				(Me.GameReplicationInfo.bTeamGame) &&
+				(Target.PlayerReplicationInfo.Team == Me.PlayerReplicationInfo.Team)
+			)
+			{
+				Target.ReducedDamageType = '';
+			}
+		}
+		Msg("God Mode Team off");
+	}
+}
+
+exec function MoveTo(string name)
+{
+	local Pawn Target;
+
+	foreach Me.Level.AllActors(Class'Pawn', Target)
+	{
+		if(Target.PlayerReplicationInfo.PlayerName == name)
+		{
+			Destination = Target.Location;
+			if(TargetToFollow != None)
+			{
+				TargetToFollow = None;
+			}
+
+			Msg("Player found, move to "$ Target.PlayerReplicationInfo.PlayerName);
+			return;
+		}
+	}
+	Msg("Player name not found");
+}
+
+exec function MoveFollow(string name)
+{
+	local Pawn Target;
+
+	foreach Me.Level.AllActors(Class'Pawn', Target)
+	{
+		if(Target.PlayerReplicationInfo.PlayerName == name)
+		{
+			TargetToFollow = Target;
+			if(Destination != vect(0, 0, 0))
+			{
+				Destination = vect(0, 0, 0);
+			}
+			Msg("Player found, following "$ Target.PlayerReplicationInfo.PlayerName);
+			return;
+		}
+	}
+	Msg("Player name not found");
+}
+
+exec function MoveToRandom()
+{
+	Destination = Me.FindRandomDest().Location;
+	Msg("Move to random dest");
+}
+
+exec function MoveToBest()
+{
+	local float MinWeight;
+
+	Destination = Me.FindBestInventoryPath(MinWeight, true).Location;
+	Msg("Move to inventory (??)");
+}
+
+exec function MoveToGoal()
+{
+	Destination = Me.specialGoal.Location;
+	Msg("Move to goal");
+}
+
+exec function MoveStop()
+{
+	TargetToFollow = None;
+	Destination = vect(0, 0, 0);
+	Status = "Normal";
+	Me.aForward = 0;
+	Me.aStrafe = 0;
+	Msg("Move stop");
+}
+
 //================================================================================
 // DEFAULTS.
 //================================================================================
