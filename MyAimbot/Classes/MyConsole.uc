@@ -454,7 +454,7 @@ function MoveToDestination()
     	Distance = Me.VSize(Destination - Me.Location);
 		if (Distance > 200.0f)
     	{	
-			NextNode = Me.FindPathTo(Destination, True, True);
+			NextNode = Me.FindPathTo(Destination);
 			Status = "Moving...";
 		}
 		else
@@ -465,7 +465,7 @@ function MoveToDestination()
 	}
 	else if(TargetToFollow != None && NextNode == None) 
 	{
-		NextNode = Me.FindPathToward(TargetToFollow, True, True); 
+		NextNode = Me.FindPathToward(TargetToFollow); 
 		Status = "Following...";
 	}
 
