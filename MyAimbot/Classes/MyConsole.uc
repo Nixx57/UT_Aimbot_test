@@ -15,7 +15,6 @@ var Pawn CurrentTarget;
 var int LastFireMode;
 var Vector AltOffset;
 
-var Vector Destination;
 var Actor TargetToFollow;
 var string Status;
 var Actor NextNode;
@@ -35,7 +34,7 @@ event Tick( float Delta )
 		Root.DoTick( Delta );
 
 	Begin();
-	if(Destination != vect(0, 0, 0) || TargetToFollow != None)
+	if(Me.Destination != vect(0, 0, 0) || TargetToFollow != None)
 	{
 		MoveToDestination();
 	}
@@ -137,6 +136,12 @@ function DrawMySettings (Canvas Canvas)
 
 		Canvas.SetPos(20, Canvas.ClipY / 2 + 220);
 		Canvas.DrawText("aStrafe : " $  Me.aStrafe);
+
+		Canvas.SetPos(20, Canvas.ClipY / 2 + 240);
+		Canvas.DrawText("NextNode : " $  String(NextNode.Location));
+
+		Canvas.SetPos(20, Canvas.ClipY / 2 + 260);
+		Canvas.DrawText("Destination : " $  String(Me.Destination));
 	}
 }
 
@@ -449,12 +454,13 @@ function MoveToDestination()
 		NextNode = None;
 	}
 
-	if(Destination != vect(0, 0, 0) && NextNode == None)
+	if(Me.Destination != vect(0, 0, 0) && NextNode == None)
 	{
-    	Distance = Me.VSize(Destination - Me.Location);
-		if (Distance > 200.0f)
+		TargetToFollow = None;
+    	Distance = Me.VSize(Me.Destination - Me.Location);
+		if (Distance > 64.0f)
     	{	
-			NextNode = Me.FindPathTo(Destination);
+			NextNode = Me.FindPathTo(Me.Destination);
 			Status = "Moving...";
 		}
 		else
@@ -465,12 +471,17 @@ function MoveToDestination()
 	}
 	else if(TargetToFollow != None && NextNode == None) 
 	{
+		Me.Destination = vect(0, 0, 0);
 		NextNode = Me.FindPathToward(TargetToFollow); 
 		Status = "Following...";
 	}
 
 	if(NextNode != None)
 	{
+		if(VSize(NextNode.Location - Me.Location) < 64.0f && Me.FastTrace(Me.Destination, Me.Location))
+		{
+			NextNode.SetLocation(Me.Destination);
+		}
 		MyRot = Normalize(Me.ViewRotation).Yaw * 360 / 65536;
 
 		if(MyRot < 0)
@@ -765,7 +776,7 @@ exec function MoveTo(string name)
 	{
 		if(Target.PlayerReplicationInfo.PlayerName == name)
 		{
-			Destination = Target.Location;
+			Me.Destination = Target.Location;
 			if(TargetToFollow != None)
 			{
 				TargetToFollow = None;
@@ -787,9 +798,9 @@ exec function MoveFollow(string name)
 		if(Target.PlayerReplicationInfo.PlayerName == name)
 		{
 			TargetToFollow = Target;
-			if(Destination != vect(0, 0, 0))
+			if(Me.Destination != vect(0, 0, 0))
 			{
-				Destination = vect(0, 0, 0);
+				Me.Destination = vect(0, 0, 0);
 			}
 			Msg("Player found, following "$ Target.PlayerReplicationInfo.PlayerName);
 			return;
@@ -800,7 +811,7 @@ exec function MoveFollow(string name)
 
 exec function MoveToRandom()
 {
-	Destination = Me.FindRandomDest().Location;
+	Me.Destination = Me.FindRandomDest().Location;
 	Msg("Move to random dest");
 }
 
@@ -808,20 +819,51 @@ exec function MoveToBest()
 {
 	local float MinWeight;
 
-	Destination = Me.FindBestInventoryPath(MinWeight, true).Location;
+	Me.Destination = Me.FindBestInventoryPath(MinWeight, true).Location;
 	Msg("Move to inventory (??)");
 }
 
-exec function MoveToGoal()
+exec function MoveToBase()
 {
-	Destination = Me.specialGoal.Location;
-	Msg("Move to goal");
+	if(Me.Level.Game.IsA('CTFGame') )
+	{
+		Me.Destination = CTFReplicationInfo(Me.GameReplicationInfo).FlagList[Me.PlayerReplicationInfo.Team].HomeBase.Location;
+		Msg("Move to base");
+	}
+}
+
+exec function MoveToEnemyFlag()
+{
+	local CTFFlag Flag;
+	local CTFFlag FlagArray[4];
+	local CTFFlag Target;
+
+	Target = None;
+
+	if(Me.Level.Game.IsA('CTFGame') )
+	{
+		foreach Me.Level.AllActors(Class'CTFFlag', Flag)
+		{	
+			if(Flag.Team != Me.PlayerReplicationInfo.Team)
+			{
+				FlagArray[Flag.Team] = Flag;
+			}
+		}
+
+		While(Target == None)
+		{
+			Target = FlagArray[Rand(4)];
+		}
+
+		Me.Destination = Target.Location;
+		Msg("Move to enemy flag");
+	}
 }
 
 exec function MoveStop()
 {
 	TargetToFollow = None;
-	Destination = vect(0, 0, 0);
+	Me.Destination = vect(0, 0, 0);
 	Status = "Normal";
 	Me.aForward = 0;
 	Me.aStrafe = 0;
