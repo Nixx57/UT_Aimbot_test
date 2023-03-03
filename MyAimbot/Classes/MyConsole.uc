@@ -1,7 +1,7 @@
 //=====================================================================================
 // BOT START.
 //=====================================================================================
-class MyConsole extends UTConsole Config(MyAimbot);
+class MyConsole extends UTConsole Config(MyConsole);
 
 var config bool bAutoAim;
 var config int MySetSlowSpeed;
@@ -9,6 +9,7 @@ var config bool bUseSplash;
 var config bool bAimPlayers;
 var config bool bRotateSlow;
 var config bool bDebug;
+var config bool bShowOverlay;
 
 var PlayerPawn Me;
 var Pawn CurrentTarget;
@@ -23,7 +24,10 @@ event PostRender (Canvas Canvas)
 {
 	Super.PostRender(Canvas); 
 
-	MyPostRender(Canvas);
+	if(bShowOverlay)
+	{
+		MyPostRender(Canvas);
+	}	
 }
 
 event Tick( float Delta )
@@ -86,13 +90,16 @@ function MyPostRender (Canvas Canvas)
 
 function DrawMySettings (Canvas Canvas)
 {
+	local string Str[8];
+	local int initial, i;
+
 	Canvas.Font = Canvas.SmallFont;
 	
 	Canvas.SetPos(20, Canvas.ClipY / 2);
 	Canvas.DrawText("[MyAimbot]");
 	
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 10 );
-	Canvas.DrawText("----------");	
+	Canvas.DrawText("----------");
 	
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 20);
 	Canvas.DrawText("AutoAim  : " $ String(bAutoAim));
@@ -127,21 +134,24 @@ function DrawMySettings (Canvas Canvas)
 	{
 		Canvas.SetPos(20, Canvas.ClipY / 2 + 160);
 		Canvas.DrawText("---DEBUG---");
+		i = 0;
+		initial = 180;
 
-		Canvas.SetPos(20, Canvas.ClipY / 2 + 180);
-		Canvas.DrawText("Physics  : " $  GetEnum(enum'EPhysics', CurrentTarget.PlayerReplicationInfo.Physics));
+		Str[0] = "Skill : "$String(Bot(CurrentTarget).Skill);
+		Str[1] = "Accuracy : "$String(Bot(CurrentTarget).Accuracy);
+		Str[2] = "bJumpy : "$String(Bot(CurrentTarget).bJumpy);
+		Str[3] = "Alertness : "$String(Bot(CurrentTarget).Alertness);
+		Str[4] = "CampingRate : "$String(Bot(CurrentTarget).CampingRate);
+		Str[5] = "Aggressiveness  : "$String(Bot(CurrentTarget).Aggressiveness);
+		Str[6] = "StrafingAbility : "$String(Bot(CurrentTarget).StrafingAbility);
+		Str[7] = "BaseAggressiveness : "$String(Bot(CurrentTarget).BaseAggressiveness);
 
-		Canvas.SetPos(20, Canvas.ClipY / 2 + 200);
-		Canvas.DrawText("aForward : " $  Me.aForward);
-
-		Canvas.SetPos(20, Canvas.ClipY / 2 + 220);
-		Canvas.DrawText("aStrafe : " $  Me.aStrafe);
-
-		Canvas.SetPos(20, Canvas.ClipY / 2 + 240);
-		Canvas.DrawText("NextNode : " $  String(NextNode.Location));
-
-		Canvas.SetPos(20, Canvas.ClipY / 2 + 260);
-		Canvas.DrawText("Destination : " $  String(Me.Destination));
+		for(i=0;i<ArrayCount(Str);i++)
+		{			
+			Canvas.SetPos(20, Canvas.ClipY / 2 + initial);
+			Canvas.DrawText(Str[i]);
+			initial += 20;
+		}
 	}
 }
 
@@ -376,42 +386,51 @@ function Vector GetTargetOffset (Pawn Target)
 
 function Vector BulletSpeedCorrection (Pawn Target)
 {
-	local float BulletSpeed, TargetDist;
-	local Vector Correction, GravityCorrection, Start;
+    local float BulletSpeed, TargetDist, ToF;
+    local Vector Correction, Start, AimSpot;
+    Start = MuzzleCorrection(Target);
 
-	Start = MuzzleCorrection(Target);
-	
-	if (Me.Weapon != None)
-	{
-		if ( (LastFireMode == 1) &&  !Me.Weapon.bInstantHit )
-		{
-			BulletSpeed = Me.Weapon.ProjectileClass.default.speed;
-		}
-		
-		if ( (LastFireMode == 2) &&  !Me.Weapon.bAltInstantHit )
-		{
-			BulletSpeed = Me.Weapon.AltProjectileClass.default.speed;
-		}
-		
-		if ( BulletSpeed > 0 )
-		{
-			TargetDist = VSize(Target.Location - Start);
-			GravityCorrection = Target.Velocity * TargetDist / BulletSpeed + Target.Region.Zone.ZoneGravity * Square(TargetDist / BulletSpeed) * 0.5;
+    if (Me.Weapon != None)
+    {
+        if ( (LastFireMode == 1) &&  !Me.Weapon.bInstantHit )
+        {
+            BulletSpeed = Me.Weapon.ProjectileClass.default.speed;
+        }
 
-			if(TargetFall(Target) && Me.FastTrace(GravityCorrection, Start))
+        if ( (LastFireMode == 2) &&  !Me.Weapon.bAltInstantHit )
+        {
+            BulletSpeed = Me.Weapon.AltProjectileClass.default.speed;
+        }
+
+        if ( BulletSpeed > 0 )
+        {
+            TargetDist = VSize(Target.Location - Start);
+            ToF = TargetDist / BulletSpeed; // initial time of flight calculation
+
+            AimSpot = Target.Location + Target.Velocity*ToF + (Target.Region.Zone.ZoneGravity * Square(ToF) * 0.5);
+
+			if(TargetFall(Target) && Me.FastTrace(AimSpot, Start))
 			{
-				
-				Correction = Target.Velocity * TargetDist / BulletSpeed + Target.Region.Zone.ZoneGravity * Square(TargetDist / BulletSpeed) * 0.5;
+				TargetDist = VSize(AimSpot - Start);
+				ToF = (ToF + (TargetDist / BulletSpeed)) / 2; // recalculate time of flight
+				Correction = Target.Velocity * ToF + (Target.Region.Zone.ZoneGravity * Square(ToF) * 0.5);
+				//AimSpot = AimSpot + Correction;
+				return Correction;
 			}
 			else
 			{
-				Correction = Target.Velocity * TargetDist / BulletSpeed;
-			}
-			return Correction;			
-		}
-	}
-	
-	return vect(0,0,0);
+				AimSpot = Target.Location + Target.Velocity*ToF;
+				
+				TargetDist = VSize(AimSpot - Start);
+				ToF = (ToF + (TargetDist / BulletSpeed)) / 2; // recalculate time of flight
+				Correction = Target.Velocity * ToF;
+				//AimSpot = AimSpot + Correction;
+				return Correction;
+			}         
+        }
+    }
+
+    return vect(0,0,0);
 }
 
 function bool TargetFall(Pawn Target)
@@ -425,6 +444,38 @@ function bool TargetFall(Pawn Target)
 		return false;
 	}
 }
+
+// function Vector BulletSpeedCorrection (Pawn Target)
+// {
+// 	local float BulletSpeed, TargetDist;
+// 	local Vector Correction, Start;
+
+// 	Start = MuzzleCorrection(Target);
+	
+// 	if (Me.Weapon != None)
+// 	{
+// 		if ( (LastFireMode == 1) &&  !Me.Weapon.bInstantHit )
+// 		{
+// 			BulletSpeed = Me.Weapon.ProjectileClass.default.speed;
+// 		}
+		
+// 		if ( (LastFireMode == 2) &&  !Me.Weapon.bAltInstantHit )
+// 		{
+// 			BulletSpeed = Me.Weapon.AltProjectileClass.default.speed;
+// 		}
+		
+// 		if ( BulletSpeed > 0 )
+// 		{
+// 			TargetDist = VSize(Target.Location - Start);
+
+// 			Correction = Target.Velocity * (TargetDist / BulletSpeed) + (Target.Acceleration * Square(TargetDist / BulletSpeed) * 0.5);
+			
+// 			return Correction;
+// 		}
+// 	}
+	
+// 	return vect(0,0,0);
+// }
 
 function SetMyRotation (Vector End, Vector Start)
 {
@@ -450,7 +501,6 @@ function MoveToDestination()
 	if(NextNode != None && (VSize(NextNode.Location - Me.Location) < 64.0f || !Me.FastTrace(NextNode.Location, Me.Location)))
 	{
 		Msg("Node reached");
-		NextNode.Destroy();
 		NextNode = None;
 	}
 
@@ -721,11 +771,80 @@ exec function help()
 	Msg("doSave = Save Settings");
 }
 
-exec function GodModeTeam(int Disable)
+//================================================================================
+// (Useless) Functions.
+//================================================================================
+
+exec function SuperBotTeam()
+{
+	local Pawn Target;
+	
+	foreach Me.Level.AllActors(Class'Pawn', Target)
+	{
+		
+		if 
+		( 
+			(Target != None) && // Target variable is Not Empty
+			(Target != Me) && //Target is Not ower own Player
+			(Target.PlayerReplicationInfo != None) && // Target has Replication info
+			(!Target.PlayerReplicationInfo.bIsSpectator) && // Target is Not a spectator
+			(!Target.PlayerReplicationInfo.bWaitingPlayer) && // Target is Not somebody that is pending to get into the game
+			(Me.GameReplicationInfo.bTeamGame) &&
+			(Target.PlayerReplicationInfo.Team == Me.PlayerReplicationInfo.Team)
+		)
+		{
+			Bot(Target).CombatStyle = RandRange(-1,1); //Xan Style
+			Bot(Target).BaseAggressiveness =FRand();
+			Bot(Target).Aggressiveness = FRand();
+			Bot(Target).Skill = 3;
+			Bot(Target).Accuracy = 1;
+			Bot(Target).bJumpy = true;
+			Bot(Target).Alertness = 1;
+			Bot(Target).CampingRate = FRand();
+			Bot(Target).StrafingAbility = 1;
+		}
+	}
+	Msg("SuperBot Team on");
+	
+}
+
+exec function GetSkills()
 {
 	local Pawn Target;
 
-	if(Disable == 1)
+	foreach Me.Level.AllActors(Class'Pawn', Target)
+	{
+		
+		if 
+		( 
+			(Target != None) && // Target variable is Not Empty
+			(Target != Me) && //Target is Not ower own Player
+			(Target.PlayerReplicationInfo != None) && // Target has Replication info
+			(!Target.PlayerReplicationInfo.bIsSpectator) && // Target is Not a spectator
+			(!Target.PlayerReplicationInfo.bWaitingPlayer) // Target is Not somebody that is pending to get into the game
+		)
+		{
+			//Bot(Target).CombatStyle = 0.5; //Xan Style
+			//Bot(Target).BaseAggressiveness = 5;
+			Msg("NAME = "$Target.PlayerReplicationInfo.PlayerName);
+			Msg("Skill : "$Bot(Target).Skill);
+			Msg("Accuracy : "$Bot(Target).Accuracy);
+			Msg("bJumpy : "$Bot(Target).bJumpy);
+			Msg("Alertness : "$Bot(Target).Alertness);
+			Msg("CampingRate : "$Bot(Target).CampingRate);
+			Msg("StrafingAbility : "$Bot(Target).StrafingAbility);
+			Msg("BaseAggressiveness : "$Bot(Target).BaseAggressiveness);
+			Msg("Aggressiveness : "$Bot(Target).Aggressiveness);
+		}
+	}
+}
+
+
+exec function GodModeTeam(int Apply)
+{
+	local Pawn Target;
+
+	if(Apply == 1)
 	{
 		foreach Me.Level.AllActors(Class'Pawn', Target)
 		{
@@ -746,7 +865,7 @@ exec function GodModeTeam(int Disable)
 		}
 		Msg("God Mode Team on");
 	}
-	else if(Disable == 0)
+	else if(Apply == 0)
 	{
 		foreach Me.Level.AllActors(Class'Pawn', Target)
 		{
@@ -870,6 +989,12 @@ exec function MoveStop()
 	Msg("Move stop");
 }
 
+exec function ShowOverlay()
+{
+	bShowOverlay = !bShowOverlay;
+	Msg("bShowOverlay = "$ string(bShowOverlay));
+}
+
 //================================================================================
 // DEFAULTS.
 //================================================================================
@@ -879,11 +1004,11 @@ defaultproperties
 	bAutoAim=True;
 	MySetSlowSpeed=300;
 	LastFireMode=1;
-	AltOffset=vect(0,0,0);
 	bUseSplash=1;
 	bRotateSlow=0;
 	bDebug=0;
 	bAimPlayers=1
+	bShowOverlay=true;
 }
 
 
