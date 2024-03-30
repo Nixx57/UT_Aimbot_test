@@ -435,7 +435,7 @@ function Vector BulletSpeedCorrection (Pawn Target)
 
 function bool TargetFall(Pawn Target)
 {
-	if((Target.Physics == PHYS_Falling || (!Target.bCanFly && !Target.Region.Zone.bWaterZone)))
+	if((Target.Physics == PHYS_Falling || (!Target.bCanFly && !Target.Region.Zone.bWaterZone)) && Target.Velocity.Z != 0)
 	{
 		return true;
 	}
