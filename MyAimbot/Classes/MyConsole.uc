@@ -765,14 +765,25 @@ exec function doSave()
 
 exec function help()
 {
-	Msg("doAutoAim = switch ON/OFF");
-	Msg("SetRotationSpeed 'NUMBER' = Set rotation speed at 'NUMBER'");
-	Msg("IncreaseSpeed = +100 to rotation speed");
-	Msg("ReduceSpeed = -100 to rotation speed");
-	Msg("UseSplash = Aim feet with rocket laucher");
-	Msg("UseRotateSlow = enable/disable smooth aiming");
-	Msg("UseDebug = enable/disable debug info (dev)");
-	Msg("doSave = Save Settings");
+	Msg("doAutoAim");
+	Msg("SetRotationSpeed X");
+	Msg("IncreaseSpeed");
+	Msg("ReduceSpeed");
+	Msg("UseSplash");
+	Msg("UseRotateSlow");
+	Msg("UseDebug");
+	Msg("----------");
+	Msg("SuperBotTeam");
+	Msg("GetSkills");
+	Msg("GodModeTeam X");
+	Msg("----------");
+	Msg("MoveTo NAME");
+	Msg("MoveFollow NAME");
+	Msg("MoveToRandom");
+	Msg("MoveToBest");
+	Msg("MoveToBase");
+	Msg("MoveToEnemyFlag");
+	Msg("MoveStop");
 }
 
 //================================================================================
