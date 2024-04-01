@@ -167,23 +167,27 @@ function PawnRelated()
 		}
 	}
 
-	foreach Me.Level.AllActors(Class'Pawn', Target)
+	if(CurrentTarget == None)
 	{
-		if ( ValidTarget(Target) )
-		{	
-			if ( VisibleTarget(Target) )
+		foreach Me.Level.AllActors(Class'Pawn', Target)
+		{
+			if ( ValidTarget(Target) )
 			{	
-				if(CurrentTarget == None)
-				{
-					CurrentTarget = Target;
-				}
-				if ( VSize(Target.Location - Me.Location) < VSize(CurrentTarget.Location - Me.Location) )
-				{
-					CurrentTarget = Target;
+				if ( VisibleTarget(Target) )
+				{	
+					if(CurrentTarget == None)
+					{
+						CurrentTarget = Target;
+					}
+					if ( VSize(Target.Location - Me.Location) < VSize(CurrentTarget.Location - Me.Location) )
+					{
+						CurrentTarget = Target;
+					}
 				}
 			}
 		}
 	}
+
 	if(CurrentTarget != None)
 	{
 		SetPawnRotation(CurrentTarget);
