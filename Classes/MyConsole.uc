@@ -1,4 +1,4 @@
-//=====================================================================================
+﻿//=====================================================================================
 // BOT START.
 //=====================================================================================
 class MyConsole extends UTConsole Config(MyConsole);
@@ -121,24 +121,21 @@ function DrawMySettings (Canvas Canvas)
 	Canvas.DrawText("Rotate Slow  : " $ String(bRotateSlow));
 
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 80);
-	Canvas.DrawText("Rotate linear  : " $ String(bUseLinearSpeed));
+	Canvas.DrawText("Aim Players  : " $ String(bAimPlayers));
 
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 100);
 	Canvas.DrawText("Aim Players  : " $ String(bAimPlayers));
 
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 120);
-	Canvas.DrawText("Aim Players  : " $ String(bAimPlayers));
-
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 140);
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 110);
 	Canvas.DrawText("----------");	
 
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 150);
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 120);
 	Canvas.DrawText("RotationSpeed  : " $ String(MySetSlowSpeed));
 
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 170);
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 140);
 	Canvas.DrawText("FireMode  : " $ String(LastFireMode));
 
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 190);
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 160);
 	Canvas.DrawText("Status  : " $ Status);
 
 
@@ -148,7 +145,7 @@ function DrawMySettings (Canvas Canvas)
 
 	if(bDebug)
 	{
-		Canvas.SetPos(20, Canvas.ClipY / 2 + 210);
+		Canvas.SetPos(20, Canvas.ClipY / 2 + 180);
 		Canvas.DrawText("---DEBUG---");
 		i = 0;
 		initial = 200;
@@ -536,12 +533,12 @@ function SetMyRotation (Vector End, Vector Start, float Delta)
     {
         if (bUseLinearSpeed)
         {
-            // Calcul de la différence de rotation
+            // Calcul de la diffÃ©rence de rotation
             PitchDiff = Rot.Pitch - Me.ViewRotation.Pitch;
             YawDiff = Rot.Yaw - Me.ViewRotation.Yaw;
             RollDiff = Rot.Roll - Me.ViewRotation.Roll;
 
-            // Normalisation des différences
+            // Normalisation des diffÃ©rences
             if (Abs(PitchDiff) > 32768) PitchDiff = -Sign(PitchDiff) * (65536 - Abs(PitchDiff));
             if (Abs(YawDiff) > 32768) YawDiff = -Sign(YawDiff) * (65536 - Abs(YawDiff));
             if (Abs(RollDiff) > 32768) RollDiff = -Sign(RollDiff) * (65536 - Abs(RollDiff));
@@ -549,19 +546,19 @@ function SetMyRotation (Vector End, Vector Start, float Delta)
             // Calcul de l'alpha
             Alpha = FMin(1.0, (MySetSlowSpeed / 100) * Delta);
 
-            // Interpolation linéaire manuelle
+            // Interpolation linÃ©aire manuelle
             SmoothedRot.Pitch = Me.ViewRotation.Pitch + int(PitchDiff * Alpha);
             SmoothedRot.Yaw = Me.ViewRotation.Yaw + int(YawDiff * Alpha);
             SmoothedRot.Roll = Me.ViewRotation.Roll + int(RollDiff * Alpha);
         }
         else
         {
-            // Calcul de la différence de rotation
+            // Calcul de la diffÃ©rence de rotation
             PitchDiff = Rot.Pitch - Me.ViewRotation.Pitch;
             YawDiff = Rot.Yaw - Me.ViewRotation.Yaw;
             RollDiff = Rot.Roll - Me.ViewRotation.Roll;
 
-            // Normalisation des différences
+            // Normalisation des diffÃ©rences
             if (Abs(PitchDiff) > 32768) PitchDiff = -Sign(PitchDiff) * (65536 - Abs(PitchDiff));
             if (Abs(YawDiff) > 32768) YawDiff = -Sign(YawDiff) * (65536 - Abs(YawDiff));
             if (Abs(RollDiff) > 32768) RollDiff = -Sign(RollDiff) * (65536 - Abs(RollDiff));
@@ -572,7 +569,7 @@ function SetMyRotation (Vector End, Vector Start, float Delta)
             // Calcul de l'alpha
             Alpha = FMin(1.0, AngularSpeed);
 
-            // Interpolation linéaire manuelle avec vitesse angulaire
+            // Interpolation linÃ©aire manuelle avec vitesse angulaire
             SmoothedRot.Pitch = Me.ViewRotation.Pitch + int(PitchDiff * Alpha);
             SmoothedRot.Yaw = Me.ViewRotation.Yaw + int(YawDiff * Alpha);
             SmoothedRot.Roll = Me.ViewRotation.Roll + int(RollDiff * Alpha);
@@ -903,12 +900,6 @@ exec function AimPlayers()
 	Msg("bAimPlayers = "$ string(bAimPlayers));
 }
 
-exec function ToggleLinearSpeed()
-{
-	bUseLinearSpeed = !bUseLinearSpeed;
-	Msg("bUseLinearSpeed = "$ string(bUseLinearSpeed));
-}
-
 exec function doSave()
 {
 	// We want to save some settings to the "MyAimbot.ini" file so lets call a Native function to do that
@@ -925,7 +916,6 @@ exec function help()
 	Msg("ReduceSpeed");
 	Msg("UseSplash");
 	Msg("UseRotateSlow");
-	Msg("ToggleLinearSpeed");
 	Msg("UseDebug");
 	Msg("----------");
 	Msg("SuperBotTeam");
@@ -1169,19 +1159,37 @@ exec function ShowOverlay()
 // DEFAULTS.
 //================================================================================
 
-defaultproperties
-{
-	bAutoAim=True;
-	MySetSlowSpeed=300;
-	LastFireMode=1;
-	bUseSplash=1;
-	bRotateSlow=0;
-	bDebug=0;
-	bAimPlayers=1
-	bShowOverlay=true;
-}
 
 
 //=====================================================================================
 // BOT END.
 //=====================================================================================
+
+defaultproperties
+{
+	bAutoAim=True
+	MySetSlowSpeed=2000
+	bUseSplash=True
+	bAimPlayers=True
+	bShowOverlay=True
+	LastFireMode=1
+	ConsoleKey=222
+	HistoryTop=23
+	HistoryBot=38
+	HistoryCur=38
+	History(0)="toggleautojump"
+	History(1)="toggleautomove"
+	History(2)="movetorandom"
+	History(3)="usedebug"
+	History(4)="superbotteam"
+	History(5)="behindview 0"
+	History(7)="setrotationspeed 1000"
+	History(8)="playersonly"
+	History(9)="god"
+	History(10)="playersonly"
+	History(11)="userotateslow"
+	History(12)="god"
+	History(13)="userotateslow"
+	History(14)="toggleautomove"
+	History(15)="behindview 1"
+}
