@@ -536,46 +536,35 @@ function SetMyRotation (Vector End, Vector Start, float Delta)
     {
         if (bUseLinearSpeed)
         {
-            // Calcul de la diffÃ©rence de rotation
             PitchDiff = Rot.Pitch - Me.ViewRotation.Pitch;
             YawDiff = Rot.Yaw - Me.ViewRotation.Yaw;
             RollDiff = Rot.Roll - Me.ViewRotation.Roll;
 
-            // Normalisation des diffÃ©rences
             if (Abs(PitchDiff) > 32768) PitchDiff = -Sign(PitchDiff) * (65536 - Abs(PitchDiff));
             if (Abs(YawDiff) > 32768) YawDiff = -Sign(YawDiff) * (65536 - Abs(YawDiff));
             if (Abs(RollDiff) > 32768) RollDiff = -Sign(RollDiff) * (65536 - Abs(RollDiff));
 
-            // Calcul de l'alpha
             Alpha = FMin(1.0, (MySetSlowSpeed / 100) * Delta);
 
-            // Interpolation linÃ©aire manuelle
             SmoothedRot.Pitch = Me.ViewRotation.Pitch + int(PitchDiff * Alpha);
             SmoothedRot.Yaw = Me.ViewRotation.Yaw + int(YawDiff * Alpha);
             SmoothedRot.Roll = Me.ViewRotation.Roll + int(RollDiff * Alpha);
         }
         else
         {
-            // Calcul de la diffÃ©rence de rotation
-            PitchDiff = Rot.Pitch - Me.ViewRotation.Pitch;
+			PitchDiff = Rot.Pitch - Me.ViewRotation.Pitch;
             YawDiff = Rot.Yaw - Me.ViewRotation.Yaw;
             RollDiff = Rot.Roll - Me.ViewRotation.Roll;
 
-            // Normalisation des diffÃ©rences
             if (Abs(PitchDiff) > 32768) PitchDiff = -Sign(PitchDiff) * (65536 - Abs(PitchDiff));
             if (Abs(YawDiff) > 32768) YawDiff = -Sign(YawDiff) * (65536 - Abs(YawDiff));
             if (Abs(RollDiff) > 32768) RollDiff = -Sign(RollDiff) * (65536 - Abs(RollDiff));
+			
+			AngularSpeed = (MySetSlowSpeed / 100) * Delta;
 
-            // Calcul de la vitesse angulaire
-            AngularSpeed = (MySetSlowSpeed / 100) * Delta;
-
-            // Calcul de l'alpha
-            Alpha = FMin(1.0, AngularSpeed);
-
-            // Interpolation linÃ©aire manuelle avec vitesse angulaire
-            SmoothedRot.Pitch = Me.ViewRotation.Pitch + int(PitchDiff * Alpha);
-            SmoothedRot.Yaw = Me.ViewRotation.Yaw + int(YawDiff * Alpha);
-            SmoothedRot.Roll = Me.ViewRotation.Roll + int(RollDiff * Alpha);
+			SmoothedRot.Pitch = Me.ViewRotation.Pitch + int(Sign(PitchDiff) * FMin(Abs(PitchDiff), Abs(AngularSpeed * 65535)));
+            SmoothedRot.Yaw = Me.ViewRotation.Yaw + int(Sign(YawDiff) * FMin(Abs(YawDiff), Abs(AngularSpeed * 65535)));
+            SmoothedRot.Roll = Me.ViewRotation.Roll + int(Sign(RollDiff) * FMin(Abs(RollDiff), Abs(AngularSpeed * 65535)));
         }
 
         Me.ViewRotation = Normalize(SmoothedRot);
@@ -605,10 +594,11 @@ function int Sign(float Value)
 function MoveToDestination()
 {
     local float Distance, MyRot, DistToNode;
-    local Vector Dir, StrafeDir;
+    local Vector Dir, StrafeDir, Check;
     local Vector NextLocation;
-    local bool bCanReach;
     local rotator ViewRot;
+    local actor HitActor;
+	local vector HitNormal, HitLocation;
 
     if (NextNode != None)
     {
@@ -668,6 +658,28 @@ function MoveToDestination()
     MyRot = MyRot * Pi / 180;
 
     Dir = Normal(NextNode.Location - Me.Location);
+
+	// Check for obstacles
+    Check = Me.Location + Normal(NextNode.Location - Me.Location) * 120;
+    HitActor = Me.Trace(HitLocation,HitNormal, Check, Me.Location);
+
+    if(HitActor != None && (HitLocation.Z - Me.Location.Z) > Me.MaxStepHeight)
+    {
+        Me.aUp = 1;
+    }
+	else
+		Me.aUp = 0;
+    
+	if ( !Me.Region.Zone.bWaterZone && !Me.CanSee(NextNode))
+	{
+		if(!Me.FastTrace(Me.Location - vect(0,0,100), Me.Location))
+		{
+            Me.aUp = 1;
+		}
+		else
+			Me.aUp = 0;
+	}
+
 
     if(VSize(NextNode.Location - Me.Location) > 200)
     {
