@@ -9,7 +9,7 @@ Simple aimbot for Unreal Tournament (1999) made in UnrealScript <br />
 - Work on NPC (coop gamemode)<br />
 <br />
 <h3>How to use :</h3>
-1) Copy the "MyAimbot" folder in UT99 root directory <br />
+1) Create "MyAimbot" folder in UT99 root directory and copy Classes folder and Compile.bat inside <br />
 2) In System/UnrealTournament.ini :<br />
 a) Add (or replace) : Console=MyAimbot.MyConsole in [Engine.Engine] <br />
 b) Add : EditPackages=MyAimbot in [Editor.EditorEngine] <br />
