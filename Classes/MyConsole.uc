@@ -121,21 +121,24 @@ function DrawMySettings (Canvas Canvas)
 	Canvas.DrawText("Rotate Slow  : " $ String(bRotateSlow));
 
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 80);
-	Canvas.DrawText("Aim Players  : " $ String(bAimPlayers));
+	Canvas.DrawText("Rotate linear  : " $ String(bUseLinearSpeed));
 
 	Canvas.SetPos(20, Canvas.ClipY / 2 + 100);
 	Canvas.DrawText("Aim Players  : " $ String(bAimPlayers));
 
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 110);
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 120);
+	Canvas.DrawText("Aim Players  : " $ String(bAimPlayers));
+
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 130);
 	Canvas.DrawText("----------");	
 
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 120);
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 140);
 	Canvas.DrawText("RotationSpeed  : " $ String(MySetSlowSpeed));
 
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 140);
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 160);
 	Canvas.DrawText("FireMode  : " $ String(LastFireMode));
 
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 160);
+	Canvas.SetPos(20, Canvas.ClipY / 2 + 180);
 	Canvas.DrawText("Status  : " $ Status);
 
 
@@ -888,6 +891,12 @@ exec function UseRotateSlow()
 	Msg("Rotate Slow = "$ string(bRotateSlow));
 }
 
+exec function ToggleLinearSpeed()
+{
+	bUseLinearSpeed = !bUseLinearSpeed;
+	Msg("Linear Speed = "$ string(bUseLinearSpeed));
+}
+
 exec function UseDebug()
 {
 	bDebug = !bDebug;
@@ -916,6 +925,7 @@ exec function help()
 	Msg("ReduceSpeed");
 	Msg("UseSplash");
 	Msg("UseRotateSlow");
+	Msg("ToggleLinearSpeed");
 	Msg("UseDebug");
 	Msg("----------");
 	Msg("SuperBotTeam");
