@@ -27,8 +27,8 @@ struct PositionData
     var float Time;
 };
 
-var PositionData PreviousLocations[65]; // Tableau circulaire
-var int LocationIndex; // Indice pour le tableau
+var PositionData PreviousLocations[128];
+var int LocationIndex;
 
 event PostRender (Canvas Canvas)
 {
@@ -65,6 +65,18 @@ event Tick( float Delta )
 //================================================================================
 // MAIN BOT.
 //================================================================================
+function MyConsole()
+{
+	local int i;
+	LocationIndex = 0;
+	for (i = 0; i < ArrayCount(PreviousLocations); i++)
+    {
+        PreviousLocations[i].Location = vect(0,0,0);
+        PreviousLocations[i].Time = Me.Level.TimeSeconds;
+    }
+}
+
+
 exec function Fire(optional float F)
 {
 	LastFireMode=1;
@@ -432,7 +444,6 @@ function Vector CalculateCustomVelocity(Pawn Target)
         }
     }
     AverageVelocity = AverageVelocity / (ArrayCount(PreviousLocations)-1);
-    
     return AverageVelocity;
 }
 
@@ -440,32 +451,57 @@ function Vector CalculateCustomAcceleration(Pawn Target)
 {
     local Vector Acceleration, AverageAcceleration, CurrentVelocity, PreviousVelocity;
     local float TimeDifferenceCurrent, TimeDifferencePrevious;
-    local int i, PreviousIndex, PreviousPreviousIndex;
-    
+    local int i, CurrentDataIndex, PreviousDataIndex, PreviousPreviousDataIndex;
+
     AverageAcceleration = vect(0,0,0);
 
-    for(i=0; i < ArrayCount(PreviousLocations)-2; i++)
+    // On va itérer sur les "segments" de vitesse que l'on peut calculer.
+    // On a besoin d'au moins 3 points pour calculer une accélération.
+    // Donc on itère jusqu'à ArrayCount(PreviousLocations) - 2 segments de vitesse.
+    for(i = 0; i < ArrayCount(PreviousLocations) - 2; i++)
     {
-        PreviousIndex = (LocationIndex - 1 - i + ArrayCount(PreviousLocations)) % ArrayCount(PreviousLocations);
-        PreviousPreviousIndex = (LocationIndex - 2 - i + ArrayCount(PreviousLocations)) % ArrayCount(PreviousLocations);
-         if (PreviousLocations[PreviousIndex].Time != 0 && PreviousLocations[PreviousPreviousIndex].Time != 0)
+        // Indices pour accéder aux données de position et temps dans PreviousLocations.
+        // On part de l'index le plus récent (juste avant LocationIndex, car LocationIndex pointe vers le *prochain* emplacement libre)
+        // et on remonte dans le passé en utilisant 'i'.
+
+        CurrentDataIndex      = (LocationIndex - 1 - i + ArrayCount(PreviousLocations)) % ArrayCount(PreviousLocations); // Point le plus récent pour ce segment
+        PreviousDataIndex     = (LocationIndex - 2 - i + ArrayCount(PreviousLocations)) % ArrayCount(PreviousLocations); // Point précédent
+        PreviousPreviousDataIndex = (LocationIndex - 3 - i + ArrayCount(PreviousLocations)) % ArrayCount(PreviousLocations); // Point encore précédent
+
+
+        // Vérification que les indices sont valides (devrait toujours être le cas avec le modulo correct, mais par sécurité)
+        if (CurrentDataIndex >= 0 && CurrentDataIndex < ArrayCount(PreviousLocations) &&
+            PreviousDataIndex >= 0 && PreviousDataIndex < ArrayCount(PreviousLocations) &&
+            PreviousPreviousDataIndex >= 0 && PreviousPreviousDataIndex < ArrayCount(PreviousLocations))
         {
-            TimeDifferenceCurrent = PreviousLocations[(LocationIndex - i) % ArrayCount(PreviousLocations)].Time - PreviousLocations[PreviousIndex].Time;
-            TimeDifferencePrevious = PreviousLocations[PreviousIndex].Time - PreviousLocations[PreviousPreviousIndex].Time;
-            
+            // Calcul des différences de temps
+            TimeDifferenceCurrent  = PreviousLocations[CurrentDataIndex].Time - PreviousLocations[PreviousDataIndex].Time;
+            TimeDifferencePrevious = PreviousLocations[PreviousDataIndex].Time - PreviousLocations[PreviousPreviousDataIndex].Time;
+
+            // Vérification des différences de temps positives pour éviter division par zéro
             if (TimeDifferenceCurrent > 0 && TimeDifferencePrevious > 0)
             {
-                CurrentVelocity = (PreviousLocations[(LocationIndex - i) % ArrayCount(PreviousLocations)].Location - PreviousLocations[PreviousIndex].Location) / TimeDifferenceCurrent;
-                PreviousVelocity = (PreviousLocations[PreviousIndex].Location - PreviousLocations[PreviousPreviousIndex].Location) / TimeDifferencePrevious;
+                // Calcul des vitesses sur les deux segments de temps
+                CurrentVelocity  = (PreviousLocations[CurrentDataIndex].Location - PreviousLocations[PreviousDataIndex].Location) / TimeDifferenceCurrent;
+                PreviousVelocity = (PreviousLocations[PreviousDataIndex].Location - PreviousLocations[PreviousPreviousDataIndex].Location) / TimeDifferencePrevious;
 
+                // Calcul de l'accélération (variation de vitesse / temps moyen)
                 Acceleration = (CurrentVelocity - PreviousVelocity) / ((TimeDifferenceCurrent + TimeDifferencePrevious) / 2);
                 AverageAcceleration += Acceleration;
             }
-         }
+        }
     }
-    
-    
-    AverageAcceleration = AverageAcceleration / (ArrayCount(PreviousLocations)-2);
+
+    // Calcul de la moyenne de l'accélération
+    if (ArrayCount(PreviousLocations) > 2) // S'assurer qu'on ne divise pas par zéro si tableau trop petit
+    {
+        AverageAcceleration = AverageAcceleration / (ArrayCount(PreviousLocations) - 2);
+    }
+    else
+    {
+        AverageAcceleration = vect(0,0,0); // Retourner 0 si pas assez de points pour calculer l'accélération
+    }
+
 
     return AverageAcceleration;
 }
