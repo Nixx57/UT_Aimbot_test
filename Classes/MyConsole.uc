@@ -8,7 +8,6 @@ var config int MySetSlowSpeed;
 var config bool bUseSplash;
 var config bool bAimPlayers;
 var config bool bRotateSlow;
-var config bool bUseLinearSpeed;
 var config bool bDebug;
 var config bool bShowOverlay;
 
@@ -27,7 +26,7 @@ struct PositionData
     var float Time;
 };
 
-var PositionData PreviousLocations[128];
+var PositionData PreviousLocations[16];
 var int LocationIndex;
 
 event PostRender (Canvas Canvas)
@@ -112,47 +111,29 @@ function MyPostRender (Canvas Canvas)
 
 function DrawMySettings (Canvas Canvas)
 {
-	local string Str[11];
-	local int initial, i;
+	local string Str[10], Str2[10];
+	local int i, posY;
 
 	Canvas.Font = Canvas.SmallFont;
+	posY = Canvas.ClipY / 2;
 	
-	Canvas.SetPos(20, Canvas.ClipY / 2);
-	Canvas.DrawText("[MyAimbot]");
-	
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 10 );
-	Canvas.DrawText("----------");
-	
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 20);
-	Canvas.DrawText("AutoAim  : " $ String(bAutoAim));
+	Str[0] = "[MyAimbot]";
+	Str[1] = "----------";
+	Str[2] = "AutoAim  : " $ String(bAutoAim);
+	Str[3] = "Use Splash  : " $ String(bUseSplash);
+	Str[4] = "Rotate Slow  : " $ String(bRotateSlow);
+	Str[5] = "Aim Players  : " $ String(bAimPlayers);
+	Str[6] = "----------";
+	Str[7] = "RotationSpeed  : " $ String(MySetSlowSpeed);
+	Str[8] = "FireMode  : " $ String(LastFireMode);
+	Str[9] = "Status  : " $ Status;
 
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 40);
-	Canvas.DrawText("Use Splash  : " $ String(bUseSplash));
-
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 60);
-	Canvas.DrawText("Rotate Slow  : " $ String(bRotateSlow));
-
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 80);
-	Canvas.DrawText("Rotate linear  : " $ String(bUseLinearSpeed));
-
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 100);
-	Canvas.DrawText("Aim Players  : " $ String(bAimPlayers));
-
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 120);
-	Canvas.DrawText("Aim Players  : " $ String(bAimPlayers));
-
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 130);
-	Canvas.DrawText("----------");	
-
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 140);
-	Canvas.DrawText("RotationSpeed  : " $ String(MySetSlowSpeed));
-
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 160);
-	Canvas.DrawText("FireMode  : " $ String(LastFireMode));
-
-	Canvas.SetPos(20, Canvas.ClipY / 2 + 180);
-	Canvas.DrawText("Status  : " $ Status);
-
+	for(i=0;i<ArrayCount(Str);i++)
+	{			
+		Canvas.SetPos(20, posY);
+		Canvas.DrawText(Str[i]);
+		posY += 20;
+	}
 
 	/////////////////////////////////
 	// DEBUG
@@ -160,27 +141,22 @@ function DrawMySettings (Canvas Canvas)
 
 	if(bDebug)
 	{
-		Canvas.SetPos(20, Canvas.ClipY / 2 + 180);
-		Canvas.DrawText("---DEBUG---");
-		i = 0;
-		initial = 200;
+		Str[0] = "---DEBUG---";
+		Str[1] = "-----------";
+		Str[2] = "-----------";
+		Str[3] = "-----------";
+		Str[4] = "-----------";
+		Str[5] = "-----------";
+		Str[6] = "-----------";
+		Str[7] = "-----------";
+		Str[8] = "-----------";
+		Str[9] = "-----------";
 
-		Str[0] = "Skill : "$String(Bot(CurrentTarget).Skill);
-		Str[1] = "Accuracy : "$String(Bot(CurrentTarget).Accuracy);
-		Str[2] = "bJumpy : "$String(Bot(CurrentTarget).bJumpy);
-		Str[3] = "Alertness : "$String(Bot(CurrentTarget).Alertness);
-		Str[4] = "CampingRate : "$String(Bot(CurrentTarget).CampingRate);
-		Str[5] = "Aggressiveness  : "$String(Bot(CurrentTarget).Aggressiveness);
-		Str[6] = "StrafingAbility : "$String(Bot(CurrentTarget).StrafingAbility);
-		Str[7] = "BaseAggressiveness : "$String(Bot(CurrentTarget).BaseAggressiveness);
-		Str[8] = "Acceleration : "$String(CalculateCustomAcceleration(CurrentTarget));
-		Str[9] = "Velocity : "$String(CalculateCustomVelocity(CurrentTarget));
-
-		for(i=0;i<ArrayCount(Str);i++)
+		for(i=0;i<ArrayCount(Str2);i++)
 		{			
-			Canvas.SetPos(20, Canvas.ClipY / 2 + initial);
-			Canvas.DrawText(Str[i]);
-			initial += 20;
+			Canvas.SetPos(20, posY);
+			Canvas.DrawText(Str2[i]);
+			posY += 20;
 		}
 	}
 }
@@ -561,54 +537,15 @@ function bool TargetFall(Pawn Target)
 function SetMyRotation (Vector End, Vector Start, float Delta)
 {
     local Rotator Rot;
-    local Rotator SmoothedRot;
-    local float Alpha;
-    local int PitchDiff, YawDiff, RollDiff;
-    local float AngularSpeed;
 
-    Rot = Normalize(rotator(End - Start));
+	Rot=Normalize(rotator(End - Start));
 
-    if (bRotateSlow)
-    {
-        if (bUseLinearSpeed)
-        {
-            PitchDiff = Rot.Pitch - Me.ViewRotation.Pitch;
-            YawDiff = Rot.Yaw - Me.ViewRotation.Yaw;
-            RollDiff = Rot.Roll - Me.ViewRotation.Roll;
-
-            if (Abs(PitchDiff) > 32768) PitchDiff = -Sign(PitchDiff) * (65536 - Abs(PitchDiff));
-            if (Abs(YawDiff) > 32768) YawDiff = -Sign(YawDiff) * (65536 - Abs(YawDiff));
-            if (Abs(RollDiff) > 32768) RollDiff = -Sign(RollDiff) * (65536 - Abs(RollDiff));
-
-            Alpha = FMin(1.0, (MySetSlowSpeed / 100) * Delta);
-
-            SmoothedRot.Pitch = Me.ViewRotation.Pitch + int(PitchDiff * Alpha);
-            SmoothedRot.Yaw = Me.ViewRotation.Yaw + int(YawDiff * Alpha);
-            SmoothedRot.Roll = Me.ViewRotation.Roll + int(RollDiff * Alpha);
-        }
-        else
-        {
-			PitchDiff = Rot.Pitch - Me.ViewRotation.Pitch;
-            YawDiff = Rot.Yaw - Me.ViewRotation.Yaw;
-            RollDiff = Rot.Roll - Me.ViewRotation.Roll;
-
-            if (Abs(PitchDiff) > 32768) PitchDiff = -Sign(PitchDiff) * (65536 - Abs(PitchDiff));
-            if (Abs(YawDiff) > 32768) YawDiff = -Sign(YawDiff) * (65536 - Abs(YawDiff));
-            if (Abs(RollDiff) > 32768) RollDiff = -Sign(RollDiff) * (65536 - Abs(RollDiff));
-			
-			AngularSpeed = (MySetSlowSpeed / 100) * Delta;
-
-			SmoothedRot.Pitch = Me.ViewRotation.Pitch + int(Sign(PitchDiff) * FMin(Abs(PitchDiff), Abs(AngularSpeed * 65535)));
-            SmoothedRot.Yaw = Me.ViewRotation.Yaw + int(Sign(YawDiff) * FMin(Abs(YawDiff), Abs(AngularSpeed * 65535)));
-            SmoothedRot.Roll = Me.ViewRotation.Roll + int(Sign(RollDiff) * FMin(Abs(RollDiff), Abs(AngularSpeed * 65535)));
-        }
-
-        Me.ViewRotation = Normalize(SmoothedRot);
-    }
-    else
-    {
-        Me.ViewRotation = Rot;
-    }
+	if(bRotateSlow)
+	{
+		Rot=RotateSlow(Normalize(Me.ViewRotation),Rot);
+	}
+	
+	Me.ViewRotation=Rot;
 }
 
 function int Sign(float Value)
@@ -630,11 +567,9 @@ function int Sign(float Value)
 function MoveToDestination()
 {
     local float Distance, MyRot, DistToNode;
-    local Vector Dir, StrafeDir, Check;
+    local Vector Dir, StrafeDir;
     local Vector NextLocation;
     local rotator ViewRot;
-    local actor HitActor;
-	local vector HitNormal, HitLocation;
 
     if (NextNode != None)
     {
@@ -695,27 +630,6 @@ function MoveToDestination()
 
     Dir = Normal(NextNode.Location - Me.Location);
 
-	// Check for obstacles
-    Check = Me.Location + Normal(NextNode.Location - Me.Location) * 120;
-    HitActor = Me.Trace(HitLocation,HitNormal, Check, Me.Location);
-
-    if(HitActor != None && (HitLocation.Z - Me.Location.Z) > Me.MaxStepHeight)
-    {
-        Me.aUp = 1;
-    }
-	else
-		Me.aUp = 0;
-    
-	if ( !Me.Region.Zone.bWaterZone && !Me.CanSee(NextNode))
-	{
-		if(!Me.FastTrace(Me.Location - vect(0,0,100), Me.Location))
-		{
-            Me.aUp = 1;
-		}
-		else
-			Me.aUp = 0;
-	}
-
 
     if(VSize(NextNode.Location - Me.Location) > 200)
     {
@@ -749,7 +663,7 @@ function MoveToDestination()
 	Msg("Node dist : "$ VSize(Me.Location - NextNode.Location));
 }
 
-function Rotator RotateSlow (Rotator RotA, Rotator RotB, float Delta)
+function Rotator RotateSlow (Rotator RotA, Rotator RotB)
 {
 	local Rotator RotC;
 	local int Pitch;
@@ -837,7 +751,7 @@ function Rotator RotateSlow (Rotator RotA, Rotator RotB, float Delta)
 	
 	if ( !Bool1 )
 	{
-		RotC.Pitch=RotA.Pitch + Pitch * (MySetSlowSpeed * Delta);
+		RotC.Pitch=RotA.Pitch + Pitch * MySetSlowSpeed;
 	} 
 	else 
 	{
@@ -846,7 +760,7 @@ function Rotator RotateSlow (Rotator RotA, Rotator RotB, float Delta)
 	
 	if ( !Bool2 )
 	{
-		RotC.Yaw=RotA.Yaw + Yaw * (MySetSlowSpeed * Delta);
+		RotC.Yaw=RotA.Yaw + Yaw * MySetSlowSpeed;
 	} 
 	else 
 	{
@@ -855,7 +769,7 @@ function Rotator RotateSlow (Rotator RotA, Rotator RotB, float Delta)
 	
 	if ( !Bool3 )
 	{
-		RotC.Roll=RotA.Roll + Roll * (MySetSlowSpeed * Delta);
+		RotC.Roll=RotA.Roll + Roll * MySetSlowSpeed;
 	}
 	else 
 	{
@@ -939,12 +853,6 @@ exec function UseRotateSlow()
 	Msg("Rotate Slow = "$ string(bRotateSlow));
 }
 
-exec function ToggleLinearSpeed()
-{
-	bUseLinearSpeed = !bUseLinearSpeed;
-	Msg("Linear Speed = "$ string(bUseLinearSpeed));
-}
-
 exec function UseDebug()
 {
 	bDebug = !bDebug;
@@ -973,7 +881,6 @@ exec function help()
 	Msg("ReduceSpeed");
 	Msg("UseSplash");
 	Msg("UseRotateSlow");
-	Msg("ToggleLinearSpeed");
 	Msg("UseDebug");
 	Msg("----------");
 	Msg("SuperBotTeam");
@@ -1156,6 +1063,8 @@ exec function MoveToBest()
 {
 	local float MinWeight;
 
+	MinWeight = 0;
+
 	Me.Destination = Me.FindBestInventoryPath(MinWeight, true).Location;
 	Msg("Move to inventory (??)");
 }
@@ -1204,6 +1113,7 @@ exec function MoveStop()
 	Status = "Normal";
 	Me.aForward = 0;
 	Me.aStrafe = 0;
+	Me.aUp = 0;
 	Msg("Move stop");
 }
 
